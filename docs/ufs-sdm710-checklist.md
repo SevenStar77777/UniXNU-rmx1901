@@ -57,3 +57,26 @@ SDM710 的这三项无法从公开资料定死，必须从设备上读，否则�
 2. 改 `NativeUfs.cpp` / `SmmuTakeover.h` / `GccUfs.h` 常量
 3. `board.toml` + defconfig 接入，只验证“控制器可读 + 容量正确”
 4. 再开根卷（`verified-root`）与持久 Data
+## 6. 实测结果（2026-11-26，U-Boot `md.l`）
+
+| 地址 | 值 | 判读 |
+|---|---|---|
+| `0x1d84000 +0x00` | `0x1587031F` | CAP：NUTRS=31（32 槽），UTRLCLS=0（UTRD 32 字节） |
+| `0x1d84000 +0x04` | `0x00000210` | **UFSHCI 2.1**（非 3.x） |
+| `0x1d84000 +0x14` | `0x00000017` | IS 寄存器可读 |
+| `0x1d87000` 起 8 字 | 全 0 | PHY 候选 A 被门控 |
+| `0x1d80000` 起 8 字 | 全 0 | PHY 候选 B 被门控 |
+| `0x15000000` | `0x00204025` | apps-SMMU 全局可读 |
+| `0x100000` | `0x001E0005` | GCC 可读，UFS 分支未全关 |
+
+结论：
+
+1. 版本为 2.1，`ShengUfs` 的 32 槽 / 32 字节 UTRD 假设成立；需核对门铃与完成寄存器在 2.1 下的偏移。
+2. PHY 基址不能靠读数判断，须取自设备 DTB。
+3. U-Boot 自带 `qcom_ufshcd` 在 `ufshcd@1d84000` probe 失败（-19），原因是 DTS 缺 PHY/clock 子节点；补齐后 U-Boot 可直接访问 UFS，用作 XNU 驱动前的验证通道。
+
+## 7. 待办
+
+- [ ] 从设备 DTB 取 `ufs_mem_phy` 基址与 `iommus` stream ID
+- [ ] 给 U-Boot 板级 DTS 补 PHY/clock 节点，验证 UFS 块读取
+- [ ] 依 UFSHCI 2.1 核对 `NativeUfs.cpp` 门铃/完成偏移

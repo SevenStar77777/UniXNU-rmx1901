@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # From UniXNU-fajita scripts/build-boot-progress.py (BSD-2-Clause-Patent), which is from UniXNU-sheng:
 # compiles the boot progress display and its board diagnostic set against the recorded XNU ABI.
-"""Build the boot progress display and diagnostics of kits/rmx1971 against the actual source-kernel ABI.
+"""Build the boot progress display and diagnostics of kits/rmx1901 against the actual source-kernel ABI.
 
 Font.h is vendored in the kit (from Mu-Silicium FrameBufferSerialPortLib), so this does not need
 a UEFI checkout. The board is eMMC: the UFS log writer of the sheng set stays unused at runtime.
@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'build/boot-progress'
 OUT.mkdir(parents=True, exist_ok=True)
 record = json.loads((ROOT / 'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/osfmk/DEVELOPMENT/startup.o.json').read_text().strip().rstrip(','))
-source = ROOT / 'kits/rmx1971/BootProgress.c'
+source = ROOT / 'kits/rmx1901/BootProgress.c'
 obj = OUT / 'BootProgress.o'
 command = []
 args = record['arguments']
@@ -38,16 +38,16 @@ while i < len(args):
     i += 1
 command += ['-DXNU_BOOT_PROGRESS=1', '-mgeneral-regs-only', '-Wall', '-Wextra', '-Werror',
             '-I', str(ROOT / '.cache/xnu-work/osfmk'),
-            '-I', str(ROOT / 'kits/rmx1971')]
+            '-I', str(ROOT / 'kits/rmx1901')]
 subprocess.run(command, cwd=record['directory'], check=True, timeout=90)
 (OUT / 'compile-command.json').write_text(json.dumps(command, indent=2) + '\n')
 
-fault_source = ROOT / 'kits/rmx1971/BootFaultProbe.c'
+fault_source = ROOT / 'kits/rmx1901/BootFaultProbe.c'
 fault_obj = OUT / 'BootFaultProbe.o'
 fault_command = [str(fault_source) if arg == str(source) else str(fault_obj) if arg == str(obj) else arg for arg in command]
 subprocess.run(fault_command, cwd=record['directory'], check=True, timeout=90)
 
-policy_source = ROOT / 'kits/rmx1971/BootWatchdogPolicy.c'
+policy_source = ROOT / 'kits/rmx1901/BootWatchdogPolicy.c'
 policy_obj = OUT / 'BootWatchdogPolicy.o'
 policy_record = json.loads((ROOT / 'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/bsd/DEVELOPMENT/kern_exec.o.json').read_text().strip().rstrip(','))
 policy_command = []
@@ -69,19 +69,19 @@ while j < len(policy_args):
 policy_command += ['-mgeneral-regs-only', '-Wall', '-Wextra', '-Werror']
 subprocess.run(policy_command, cwd=policy_record['directory'], check=True, timeout=90)
 
-diag_source = ROOT / 'kits/rmx1971/BootDiagExport.c'
+diag_source = ROOT / 'kits/rmx1901/BootDiagExport.c'
 diag_obj = OUT / 'BootDiagExport.c.o'
 diag_command = [str(diag_source) if arg == str(policy_source) else str(diag_obj) if arg == str(policy_obj) else arg for arg in policy_command]
 subprocess.run(diag_command, cwd=policy_record['directory'], check=True, timeout=90)
 
-stub_source = ROOT / 'kits/rmx1971/BootProgressStubs.c'
+stub_source = ROOT / 'kits/rmx1901/BootProgressStubs.c'
 stub_obj = OUT / 'BootProgressStubs.o'
 stub_command = [str(stub_source) if arg == str(policy_source) else str(stub_obj) if arg == str(policy_obj) else arg for arg in policy_command]
 subprocess.run(stub_command, cwd=policy_record['directory'], check=True, timeout=90)
 
 # The fastboot reset (sheng-autoreset=<seconds>): a plain PSCI reset. BootLog.c (the UFS log
 # writer) is not compiled: this board has no UFS.
-reset_source = ROOT / 'kits/rmx1971/BootReset.c'
+reset_source = ROOT / 'kits/rmx1901/BootReset.c'
 reset_obj = OUT / 'BootReset.o'
 reset_command = [str(reset_source) if arg == str(source) else str(reset_obj) if arg == str(obj) else arg for arg in command]
 subprocess.run(reset_command, cwd=record['directory'], check=True, timeout=90)
@@ -89,7 +89,7 @@ subprocess.run(reset_command, cwd=record['directory'], check=True, timeout=90)
 # The board's own inert definitions of the USB/eMMC probe symbols BootProgress.c
 # reaches as weak imports; see package/Rmx1971Stubs.c for why they cannot stay
 # unresolved. Compiled with the same flags as the rest of the kit.
-board_source = ROOT / 'kits/rmx1971/Rmx1971Stubs.c'
+board_source = ROOT / 'kits/rmx1901/Rmx1971Stubs.c'
 board_obj = OUT / 'Rmx1971Stubs.o'
 board_command = [str(board_source) if arg == str(source) else str(board_obj) if arg == str(obj) else arg for arg in command]
 subprocess.run(board_command, cwd=record['directory'], check=True, timeout=90)

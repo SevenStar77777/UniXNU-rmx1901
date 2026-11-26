@@ -18,8 +18,34 @@ inputs = [
 
 [[area]]
 id = "boot-chain"
-status = "planned"
+status = "device-verified"
+inputs = [
+  "U-Boot 2025.07 boots from boot partition (text_offset=0, os_version=0x1400014A).",
+  "Vendor DTB table replaced with 15 DTBs from ColorOS C.14 (SDM710 / 0x172).",
+  "Observed: 'Model: Realme X (rmx1901)', 'DRAM: 2 GiB', two MMC buses enumerated.",
+]
 
 [[area]]
 id = "kernel-first-console"
+status = "device-verified"
+inputs = [
+  "kernel.macho built by Actions (rmx1901_defconfig, Xcode 26.6).",
+  "Payload volume 128 MiB flashed to vm-system; bootcmd=bootefi bootmgr.",
+  "Observed: '[rmx1901-a1] UniXNU boot diagnostics -- live XNU -- native 4K', CPU0 MPIDR=0x81000000, IODeviceTree 8192 bytes.",
+  "Stuck at repeated 'vfs_mountroot enter': no root device.",
+]
+
+[[area]]
+id = "storage"
 status = "planned"
+next_measurement = "核对 ShengUfs 常量与 SDM710 差异：UFSHCD 版本（2.1 vs 3.x）、PHY 基址（SDM710 疑为 0x1d87000）、apps-SMMU 基址与 stream ID、GCC 时钟门控。"
+inputs = [
+  "Controller 0x1d84000 (same offset as reference), 4 KiB logical blocks.",
+  "ShengUfs reference targets SM8550: verify version register, PHY range, SMMU context, GCC branch.",
+  "Root volume and payload.adt root_match_volume_uuid still undefined for this device.",
+]
+
+[[area]]
+id = "display"
+status = "planned"
+next_measurement = "GopFramebuffer 能否复用 cont_splash_region 0x9c000000；DSI/DPU 初始化责任方未定。"

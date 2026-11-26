@@ -99,8 +99,26 @@
 &pon_pwrkey { status = "okay"; };
 &pon_resin { linux,code = <KEY_VOLUMEDOWN>; status = "okay"; };
 
-&ufs_mem_phy { status = "okay"; vdda-phy-supply = <&vreg_l1b_0p925>; vdda-pll-supply = <&vreg_l1a_1p225>; };
-&ufs_mem_hc { status = "okay"; reset-gpios = <&tlmm 150 GPIO_ACTIVE_LOW>; vcc-supply = <&vreg_l4b_2p95>; vccq2-supply = <&vreg_l8b_3p3>; };
+&ufs_mem_phy {
+	status = "okay";
+	compatible = "qcom,sdm845-qmp-ufs-phy", "qcom,ufs-phy-qmp-v3";
+	/delete-property/ clocks;
+	/delete-property/ clock-names;
+	vdda-phy-supply = <&vreg_l1b_0p925>;
+	vdda-pll-supply = <&vreg_l1a_1p225>;
+};
+&ufs_mem_hc {
+	status = "okay";
+	phys = <&ufs_mem_phy>;
+	phy-names = "ufsphy";
+	/delete-property/ clocks;
+	/delete-property/ clock-names;
+	/delete-property/ resets;
+	/delete-property/ reset-names;
+	reset-gpios = <&tlmm 150 GPIO_ACTIVE_LOW>;
+	vcc-supply = <&vreg_l4b_2p95>;
+	vccq2-supply = <&vreg_l8b_3p3>;
+};
 &sdhc_1 { status = "disabled"; };
 &gcc { protected-clocks = <GCC_QSPI_CORE_CLK>, <GCC_QSPI_CORE_CLK_SRC>, <GCC_QSPI_CNOC_PERIPH_AHB_CLK>; };
 &tlmm { gpio-reserved-ranges = <0 4>, <80 5>; };

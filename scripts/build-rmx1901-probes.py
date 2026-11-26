@@ -10,7 +10,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'build/rmx1901-probes'
 OUT.mkdir(parents=True, exist_ok=True)
-source = ROOT / 'package/LegacyDisplayProbe.cpp'
+source = ROOT / 'kits/rmx1901/LegacyDisplayProbe.cpp'
 obj = OUT / 'LegacyDisplayProbe.o'
 record = json.loads((ROOT / 'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/iokit/DEVELOPMENT/IOPlatformExpert.cpo.json').read_text().strip().rstrip(','))
 command, index = [], 0

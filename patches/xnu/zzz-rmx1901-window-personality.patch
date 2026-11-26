@@ -1,0 +1,16 @@
+diff --git a/iokit/KernelConfigTables.cpp b/iokit/KernelConfigTables.cpp
+--- a/iokit/KernelConfigTables.cpp
++++ b/iokit/KernelConfigTables.cpp
+@@ -61,4 +61,12 @@
+     "     'IOProviderClass' = IOService;"
+     "     'IOExclaveProxy'  = 1:32;"
+     "   }"
++#if defined(XNU_RMX1901_ROOT_WINDOWS) && XNU_RMX1901_ROOT_WINDOWS
++    "   ,{"
++    "     'IOClass'         = Rmx1901WindowPublisher;"
++    "     'IOProviderClass' = IOResources;"
++    "     'IOResourceMatch' = IOBSD;"
++    "     'IOProbeScore'    = 1000:32;"
++    "   }"
++#endif
+     ")";

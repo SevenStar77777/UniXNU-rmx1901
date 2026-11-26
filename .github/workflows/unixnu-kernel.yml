@@ -1,4 +1,4 @@
-name: UniXNU kernel for rmx1971
+name: UniXNU kernel for rmx1901
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
       device_repository:
         description: Device repository as owner/name
         required: true
-        default: AppleCampus/UniXNU-rmx1971
+        default: SevenStar77777/UniXNU-rmx1901
       device_ref:
         description: Device repository ref
         required: true
@@ -18,7 +18,7 @@ on:
       defconfig:
         description: Defconfig name (configs/ of the device repository)
         required: true
-        default: rmx1971_defconfig
+        default: rmx1901_defconfig
       steps:
         description: Steps to build (nothing is uploaded except text logs; userdata needs about 16 GB of disk)
         type: choice

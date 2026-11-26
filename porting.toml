@@ -33,19 +33,59 @@ inputs = [
   "Payload volume 128 MiB flashed to vm-system; bootcmd=bootefi bootmgr.",
   "Observed: '[rmx1901-a1] UniXNU boot diagnostics -- live XNU -- native 4K', CPU0 MPIDR=0x81000000, IODeviceTree 8192 bytes.",
   "Stuck at repeated 'vfs_mountroot enter': no root device.",
+  "2026-11-27: bootefi bootmgr from vm-system EFI fallback path SUCCEEDED - BOOTAA64.EFI loaded and reached '[rmx1901-m1] UniXNU boot diagnostics - live XNU - native 4K', time=94s. U-Boot->UFS->FAT32->EFI->XNU chain is fully proven.",
+  "Same boot still loops at 'vfs_mountroot enter' every ~5s. Panel bottom: 'UFS TIME verify=0 read=0 verified=0 blocks requests=0' and 'UFS step=25 spr=0/0 vfs=unset'. step=25 means sweet_ufs_rootdev got past step 3 then the vfs loop incremented ~19 times; vfs=unset means the diagnostic panel reads an empty native_vfs_names (weak-symbol copy in BootProgress vs kernel), not necessarily that XNU has no VFS. 'Kernel console ... an IRQ-off hard lock stops refresh' matches the known hard lock.",
+  "2026-11-27 03:22 post-flash boot: still loops at vfs_mountroot; panel now 'UFS TIME verify=0 read=0 verified=0 blocks requests=0' and 'UFS step=15 apfs=0/0 vfs=(unset)', time=45s. step dropped 25->15 only because photographed earlier (45s/5s ~ 9 loop increments + 6), NOT evidence of progress. requests=0 means the sweet UFS driver published no block reads for APFS to consume.",
+  "Root cause identified from source: this kernel has CONFIG_XNU_NATIVE_UFS=n and uses only patches/xnu/sweet-ufs-root.patch, whose sweet_ufs.c is a bare 512-byte block device over the whole userdata partition. That driver has NO SHNGROOT manifest parsing and never assigns native_ufs_blocks_published (declared once at patch line 226, never set). Therefore no OS/SystemOS windows are published as IOMedia, and APFS has no volume carrying root_match_volume_uuid to mount. Successful boards in UniXNU core (gtaxllte/orangepi5) publish each SHNGROOT window as its own IOBlockStorageDevice/IOMedia; this fork lacks that driver entirely.",
+  "apfs=0/0 is NOT a failure: core scripts/check-original-apfs-checkpoints.py treats native_apfs_load_status==0 as genuine kext-load success. The missing piece is window publication + root-volume IOMedia, not APFS loading.",
+  "Flashing userdata-root.img was still necessary and correct: the image is valid SHNGROOT v1 with matching UUID. But with the current kernel it cannot change the mount loop. Fix requires a kernel-side SHNGROOT window publisher (native UFS driver ported from core) plus kernel payload rebuild, NOT more boot-image flashes.",
+]
+
+[[area]]
+id = "kernel-root-windows"
+status = "implemented-pending-build"
+next_measurement = "Build the new archive and payload, boot with rmx1901-root-windows=1 and rmx1901-allow-unverified=1, then confirm 'Rmx1901Window: SHNGROOT v1 with 2 window(s)' and two published windows, native_ufs_blocks_published=2, and an IOMedia whose UUID is 04769D26-2CA0-4825-B443-E2E5F88300F2."
+inputs = [
+  "Rmx1901WindowPublisher.cpp is a board-started IOService personality (IOResources/IOBSD, guarded by XNU_RMX1901_ROOT_WINDOWS) that calls sweet_ufs_rootdev() before using the shared UFS read path.",
+  "It validates the SHNGROOT v1/v2 header SHA-256, publishes SystemOS then OS as read-only 512-byte IOBlockStorageDevice windows, and increments native_ufs_blocks_published for each child.",
+  "Root hooks follow the proven gtaxllte signatures: native_verified_block_root_authorized(dev_t), native_verified_block_volume_device(const char *, dev_t *, char *, size_t), native_verified_block_manifest_sha384(dev_t, const char *, uint8_t[48]). Device matching uses kIOBSDMajorKey/kIOBSDMinorKey and UUID matching uses IOMedia property matching, not a global scan.",
+  "The 64 KiB staging buffer is now an IOBufferMemoryDescriptor owned by the publisher with an IOLock; no 68 KiB kernel-stack allocation remains.",
+  "build-rmx1901-windows.py compiles with the recorded IOPlatformExpert ABI, audits the arm64/iOS 17 Mach-O object and archives libRmx1901Windows.a; rmx1901_defconfig force-loads it and defines the personality macro through build-xnu-4k-baseline.sh.",
+  "rd=ufsroot0 was removed from board.toml kernel_args so IOKitBSDInit's /chosen/root-matching UUID path is not overridden; ufsroot=userdata remains as the UFS partition selector and vfs_subr keeps the bare-device fallback.",
 ]
 
 [[area]]
 id = "storage"
-status = "planned"
-next_measurement = "重建 boot-ufs.img 验证恢复 clocks/clock-names 后 UFS probe 能否通过；若 PHY 报 lane 错误，核对 DTS 继承的 lanes-per-direction=<2> 与设备 DTB 实测的 1 lane；之后再用 md.l 读 CAP/VER 并验证 LUN0 块读取。"
+status = "verified-on-device"
+next_measurement = "内核侧 SHNGROOT 窗口发布驱动已实现并接入构建：package/Rmx1901WindowPublisher.cpp 按 gtaxllte NativeDwMmc 模式解析 SHNGROOT、发布 OS/SystemOS IOMedia、提供 root_authorized/volume_device/manifest_sha384 钩子；sweet-ufs-root.patch 导出 UFS 读/几何原语并计入请求计数。下一步推送触发 Actions 构建 kernel+payload，下载后经用户授权重刷 vm-system，验证 IOMedia UUID 与 APFS 根挂载；不再刷 boot 诊断镜像。"
 inputs = [
   "U-Boot md.l: 0x1d84000 CAP=0x1587031F, VER=0x00000210 (UFSHCI 2.1), 32 slots / 32-byte UTRD.",
   "ColorOS C.14 DTB: ufshc@1d84000 len 0x3000, SPI IRQ 265, phy@1d87000 len 0xe00, 1 lane, no iommus, GCC clocks 0xb1/0xb7/0x89/0xb3/0xb5/0x92/0x90 + XO, reset 0x0e.",
-  "U-Boot device run: qcom-ufshcd failed to initialize clocks err:-2 -> Host controller init failed -> ufshcd_probe() failed ret:-2; -2 is -ENOENT.",
+  "Device run BEFORE fix: qcom-ufshcd failed to initialize clocks err:-2 -> Host controller init failed -> ufshcd_probe() failed ret:-2; -2 is -ENOENT.",
   "Cause: dts/sdm710-realme-rmx1901.dts deleted clocks/clock-names on ufs_mem_hc and ufs_mem_phy; ufs_qcom_init() clk_get_bulk() and qmp_ufs_clk_init() require them.",
-  "Fix applied locally: restore clocks/clock-names; keep resets/interconnects/power-domains deleted. 0001-clk-sdm670 patch supplies GCC_UFS_PHY_RX_SYMBOL_1_CLK.",
+  "Fix committed c5df38c: restore clocks/clock-names; keep resets/interconnects/power-domains deleted. 0001-clk-sdm670 patch supplies GCC_UFS_PHY_RX_SYMBOL_1_CLK.",
+  "Device run AFTER fix (boot-ufs4 diag image): reached ===DONE===, UFS init + PHY training (gear3, lane 1) + SCSI scan + GPT parse all OK; enumerated 12 EFI partitions including ALIGN_TO_128K_2/modemst1/2/opposelver1/2/3/carrier/DRIVER/fsg/mdtp.",
+  "6 SCSI LUNs (SK hynix HN9053ECFWRXR Rev 0004): LUN0=55.7GB (14686336x4096), LUN1/2=4MB (1024x4096), LUN3=32MB (8192x4096), LUN4=3.2GB (851968x4096), LUN5=680MB (153600x4096). LUN6/7 absent.",
+  "Every LUN LBA2 4-block read succeeded; GPT entry regions valid. LUN0 partitions: ssd/persist/elig/keystore/frp/vm-data x2/vm-system/vm-cache/cache/system/odm/userdata (no boot).",
+  "LUN4 partitions 1-16 via part name: 1=xbl 2=sbl1 3=mup 4=modem 5=bluetooth 6=dsp 7=cdsp 8=ipa_fws 9=bluetooth 10=boot 11=cmnlib 12=cmnlib64 13=qupfw 14=vendor 15=vbmeta 16=vbmeta. boot is partition 10; later 21-34 are NV areas (sec/devinfo/apdp/msdp/splash/logfs/logdump).",
+  "part start by NAME returns NA for boot/boot_a/etc on this U-Boot, but by partition NUMBER works (LBAF hex, 4 KiB blocks).",
+  "Device 4 partition start LBA (hex, from ===J=== screen): N6=a266 N7=a286 N8=a2a6 N9=c506 N10=c506 N11=10506 N12=10526 N13=10546 N14=10626 N15=10636.",
+  "boot = device 4 partition 10: start LBA 0xc506, size 0x4000 blocks (64 MiB). Cross-check: next partition 11 (cmnlib) starts 0x10506 = 0xc506+0x4000, confirming size.",
+  "vendor = partition 14 start 0x10626 size 0x10; vbmeta = partition 15 start 0x10636 size 0x86000. (0x10636 = 0x10626+0x10, consistent.)",
+  "boot partition byte offset = 0xc506 * 4096 = 0xc506000 (197 MiB into LUN4).",
+  "boot.img header at 0xc506 decoded: ANDROID!, header_version=1, page_size=0x1000, kernel_size=0x48414f (4,735,311 B, page-padded 0x485000), ramdisk_size=0, tags_addr=0x100, os_version=0x1400014a.",
+  "U-Boot SCSI logical block size is 4096 B; 'scsi read' prints block numbers in decimal (0xc507 is shown as 50439). Kernel starts at LBA 0xc507 and begins with gzip magic 1f 8b 08.",
+  "LUN0 partitions 1-13: ssd, persist, elig, keystore, frp, vm-data x2, vm-system (partition 8), linux, cache, system, odm, userdata; 14-16 absent. vm-system starts at LBA 0x2d08 (11528 decimal).",
+  "vm-system boot sector is FAT32 (jump EB 58 90, boot sig 0x29 at 0x42, 512 B/sector, 32 sectors/cluster, 32 reserved sectors, 2 FATs, total 0x40000 sectors = 128 MiB). Its +0x400 region is all zero, confirming it is not ext2/3/4; use U-Boot fatls instead of raw superblock dumps.",
+  "U-Boot 'fatls scsi 0:8 /' succeeds: root contains EFI/ directory and 0 files, confirming FAT driver reads the payload volume correctly.",
+  "fatls /EFI shows UniXNU/ and BOOT/ directories; fatls /EFI/BOOT shows BOOTAA64.EFI (size 0x110080 = 1,114,240 B), the UEFI removable-media fallback path is present.",
   "Root volume UUID is set in board.toml payload.adt (04769D26-2CA0-4825-B443-E2E5F88300F2); still needs on-device mount verification.",
+  "2026-11-27 ===R=== dump: userdata first LBA 0x163908 (1456392 decimal) 256 bytes are all zero; no 'SHNGROOT' manifest. Per official docs the userdata image must begin with SHNGROOT (header 4096 B, zero-padded to 1 MiB; first window at 0x100000). Root image was never built/flashed in this session, which explains the vfs_mountroot loop.",
+  "userdata capacity per board.toml = (0xDEFDFA - 0x163908 + 1) * 4096 = 53,893,607,424 B (~50.2 GiB). Build command: './unixnu build userdata', report out/<device>/<os_profile>/<config>/userdata/userdata-root.json, flash 'fastboot flash userdata <image>' (use -S 4194304 on this U-Boot gadget).",
+  "2026-11-27 local build: cloned UniXNU core to E:/unixnu-build/UniXNU, defconfig rmx1901_defconfig -D <fork>, patched local udif.py to use Python lzfse module (no binary needed) and userdata.py paths() to write output to D:/unixnu-build. Built with './unixnu build userdata' from iPadOS 17.7.11 21H461 IPSW (OS 044-76040-038.dmg UDIF lzfse + SystemOS 044-76034-038.dmg raw), output D:/unixnu-build/userdata-root.img (9,382,658,048 B = 8.738 GiB).",
+  "userdata-root.img verified: magic SHNGROOT v1, count=2, manifest self-SHA256 OK, windows OS/SystemOS, whole-image SHA-256 matches userdata-root.json, root UUID 04769D26-2CA0-4825-B443-E2E5F88300F2 found at 0x3f1c4f0 inside OS window (board.toml root_match_volume_uuid match).",
+  "2026-11-27 flash: user listed target partition first (only `userdata`, fastboot partition-size 0xC8A6F3000 = 50.163 GiB, LBA start 0x163908, image covers 0x163908-0x392d07 / 2,290,688 blocks) and explicitly confirmed. Executed 'fastboot -S 4194304 flash userdata D:/unixnu-build/userdata-root.img': 2110/2110 chunks OKAY, 345.768s, exit 0. Harmless 'Invalid sparse file format at header magic' means raw-write fallback.",
+  "After userdata flash, boot partition restored to boot-efi-bootmgr-rmx1901.img (sha256 400575f7bb0e93415729faf38d4db27da6345e5bf701c6c221f2a9d9d7f559f4) and device rebooted; awaiting screen to confirm root mount.",
 ]
 
 [[area]]

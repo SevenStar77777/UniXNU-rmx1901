@@ -37,6 +37,7 @@ archives = [
   "build-rmx1901-probes.py",
   "build-boot-progress.py",
   "build-rmx1901-pmgr.py",
+  "build-rmx1901-windows.py",
 ]
 
 [device_tree]
@@ -72,10 +73,11 @@ kernel_args = [
   "armcpu-timer-intid=19",
   "sheng-pmgr=2",
   "amfi_get_out_of_my_way=1",
-  "rd=ufsroot0",
   "ufsroot=userdata",
+  "rmx1901-root-windows=1",
+  "rmx1901-allow-unverified=1",
   "offline-apfs-load=1",
-  "sheng-build-tag=rmx1901-m1",
+  "sheng-build-tag=rmx1901-m2",
 ]
 
 [payload.adt]

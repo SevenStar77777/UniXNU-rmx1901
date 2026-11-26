@@ -165,7 +165,7 @@ diff --git a/bsd/dev/sweet_ufs.c b/bsd/dev/sweet_ufs.c
 new file mode 100644
 --- /dev/null
 +++ b/bsd/dev/sweet_ufs.c
-@@ -0,0 +1,602 @@
+@@ -0,0 +1,634 @@
 +/*
 + * Internal UFS root device for the Realme 5 Pro (RMX1971, codename "sweet"), read-only.
 + *
@@ -414,6 +414,38 @@ new file mode 100644
 +		0, (uint8_t)(count >> 8), (uint8_t)count, 0
 +	};
 +	return ufs_scsi(cdb, sizeof(cdb), count * UFS_BLOCK);
++}
++
++/* Exported for the SHNGROOT window publisher (Rmx1901WindowPublisher.cpp).
++ * Copies into the caller's buffer under the same lock the BSD strategy uses,
++ * because the bounce buffer is shared. Returns 0 or an errno. Only valid once
++ * the driver is ready; the publisher waits for that before it reads. */
++int
++rmx1901_ufs_read(uint64_t lba, uint32_t count, void *out)
++{
++	if (!su.ready || !out || !count || count > BOUNCE_SIZE / UFS_BLOCK) {
++		return EINVAL;
++	}
++	int error;
++	lck_mtx_lock(&sweet_ufs_lock);
++	error = ufs_read_blocks(lba, count);
++	if (!error) {
++		__atomic_fetch_add(&native_ufs_block_reads, count, __ATOMIC_RELAXED);
++		memcpy(out, (const void *)(su.dma + DMA_BOUNCE),
++		    (size_t)count * UFS_BLOCK);
++	}
++	lck_mtx_unlock(&sweet_ufs_lock);
++	return error;
++}
++
++/* Partition geometry for the window publisher: the userdata partition's first
++ * 4096-byte block and its length, both in device blocks. */
++void
++rmx1901_ufs_geometry(uint64_t *first, uint64_t *nblocks, uint32_t *block_bytes)
++{
++	if (first) *first = su.first_block;
++	if (nblocks) *nblocks = su.nblocks;
++	if (block_bytes) *block_bytes = UFS_BLOCK;
 +}
 +
 +static int

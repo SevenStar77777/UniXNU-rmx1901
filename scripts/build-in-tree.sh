@@ -41,39 +41,6 @@ make_payload() {
 	[ -f "$nodtb" ] || { echo "error: $nodtb missing" >&2; exit 1; }
 	[ -f "$dtb" ] || { echo "error: $dtb missing" >&2; exit 1; }
 	cat "$nodtb" "$dtb" > "$bin"
-	python3 - "$bin" "$nodtb" "$ROOT" <<'PY'
-import struct, sys
-binpath, nodtb, root = sys.argv[1], sys.argv[2], sys.argv[3]
-off = len(open(nodtb, "rb").read())
-blob = open(binpath, "rb").read()
-if blob[off:off + 4] != b"\xd0\x0d\xfe\xed": sys.exit(f"error: no FDT at _end ({off:#x}) in {binpath}")
-tot = struct.unpack_from(">I", blob, off + 4)[0]
-if tot < 0x100 or off + tot > len(blob): sys.exit(f"error: DTB at {off:#x} claims {tot} bytes")
-print(f"    dtb at _end: {off:#x}, {tot} bytes, {len(blob)} total")
-sys.path.insert(0, root + "/scripts")
-import importlib.util
-spec = importlib.util.spec_from_file_location("p", root + "/scripts/patch-stock-dtb.py")
-m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-dtb = blob[off:off + tot]
-rt = m.find_root(m.parse(dtb)[0])
-mem = rt.child("memory")
-if mem is None: sys.exit("error: no literal /memory node")
-reg = mem.props.get("reg", b"")
-if len(reg) != 16: sys.exit(f"error: /memory reg is {len(reg)} bytes")
-base, size = struct.unpack(">QQ", reg)
-if not size: sys.exit("error: /memory has zero size")
-fb = [c for c in rt.children if c.name.startswith("framebuffer@")]
-model = rt.props.get("model", b"").split(b"\0")[0].decode()
-print(f"    DT ok: /memory {base:#x}+{size:#x}, {len(fb)} fb node(s), model {model!r}")
-PY
-	local dtc=""
-	for c in "$dir/scripts/dtc/dtc" "$(command -v dtc 2>/dev/null || true)"; do [ -n "$c" ] && [ -x "$c" ] && dtc=$c && break; done
-	if [ -n "$dtc" ]; then
-		python3 -c 'import sys;d=open(sys.argv[1],"rb").read();o=len(open(sys.argv[2],"rb").read());open(sys.argv[3],"wb").write(d[o:])' "$bin" "$nodtb" "$dir/u-boot.dtb.extracted"
-		"$dtc" -I dtb -O dts -o "$dir/u-boot.dtb.extracted.dts" "$dir/u-boot.dtb.extracted"
-		grep -qE "^[[:space:]]*memory \{" "$dir/u-boot.dtb.extracted.dts" || { echo "error: dtc output has no /memory node" >&2; exit 1; }
-		echo "    dtc parsed internal DT"
-	fi
 	fix_image_header "$bin"
 	gzip -9 -n -c "$bin" > "$out"
 }
@@ -82,7 +49,7 @@ pack() { python3 "$ROOT/scripts/pack-boot.py" "$1" --dtb-table "$OUT_ABS/stock-f
 
 cd "$UB"
 echo "== defconfig"
-make -s O="$OUT_ABS" qcom_defconfig qcom-phone.config
+make -s O="$OUT_ABS" qcom_defconfig qcom-phone.config rmx1901.config
 require_config "$OUT_ABS" EFI_PARTITION CMD_PART CMD_FAT FS_FAT CMD_FS_GENERIC FASTBOOT_FLASH_BLOCK CMD_FASTBOOT USB_DWC3_GADGET FASTBOOT_OEM_RUN FASTBOOT_CMD_OEM_CONSOLE CONSOLE_RECORD
 
 echo "== build"
@@ -100,7 +67,7 @@ build_env_variant() {
 	local name=$1 envf=$2 img=$3 dir
 	dir="$(dirname "$OUT_ABS")/out-$name"
 	echo "== build $name ($dir)"
-	make -s O="$dir" qcom_defconfig qcom-phone.config
+	make -s O="$dir" qcom_defconfig qcom-phone.config rmx1901.config
 	bash ./scripts/config --file "$dir/.config" --set-str ENV_DEFAULT_ENV_TEXT_FILE "$envf"
 	make -s O="$dir" olddefconfig
 	build "$dir"

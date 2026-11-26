@@ -14,7 +14,7 @@ on:
       - "board.toml"
       - "feeds.toml"
       - "configs/**"
-      - "dts/rmx1971.dts"
+      - "dts/rmx1901.dts"
       - "porting.toml"
       - ".github/workflows/port-check.yml"
   workflow_dispatch:
@@ -58,7 +58,7 @@ jobs:
         env:
           UNIXNU_DEVICE: ${{ github.workspace }}/device
         run: |
-          ./unixnu defconfig rmx1971_defconfig
+          ./unixnu defconfig rmx1901_defconfig
           echo '--- assembled configuration'
           cat out/state.json 2>/dev/null || true
 
@@ -80,15 +80,15 @@ jobs:
           set -euo pipefail
           inc=$(dirname "$(find . -name sdm710.dtsi | head -1)")
           echo "soc dtsi directory: $inc"
-          dtc -I dts -O dtb -i "$inc" -o rmx1971.dtb ../device/dts/rmx1971.dts
-          dtc -I dtb -O dts rmx1971.dtb | sed -n '1,45p'
+          dtc -I dts -O dtb -i "$inc" -o rmx1901.dtb ../device/dts/rmx1901.dts
+          dtc -I dtb -O dts rmx1901.dtb | sed -n '1,45p'
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: rmx1971-port-check
+          name: rmx1901-port-check
           if-no-files-found: warn
           retention-days: 7
           path: |
             unixnu-src/status.json
-            unixnu-src/rmx1971.dtb
+            unixnu-src/rmx1901.dtb

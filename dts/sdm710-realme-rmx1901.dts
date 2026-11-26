@@ -102,8 +102,7 @@
 &ufs_mem_phy {
 	status = "okay";
 	compatible = "qcom,sdm845-qmp-ufs-phy", "qcom,ufs-phy-qmp-v3";
-	/delete-property/ clocks;
-	/delete-property/ clock-names;
+	/* qmp_ufs_clk_init() requires DT clocks ("ref", "ref_aux") */
 	vdda-phy-supply = <&vreg_l1b_0p925>;
 	vdda-pll-supply = <&vreg_l1a_1p225>;
 };
@@ -111,8 +110,12 @@
 	status = "okay";
 	phys = <&ufs_mem_phy>;
 	phy-names = "ufsphy";
-	/delete-property/ clocks;
-	/delete-property/ clock-names;
+	/*
+	 * ufs_qcom_init() calls clk_get_bulk() on the nine inherited clocks;
+	 * without them probe fails with -ENOENT ("failed to initialize clocks,
+	 * err:-2"). The missing RX_SYMBOL_1 clock is supplied by the
+	 * patches/uboot/0001-clk-sdm670-... patch.
+	 */
 	/delete-property/ resets;
 	/delete-property/ reset-names;
 	/delete-property/ interconnects;

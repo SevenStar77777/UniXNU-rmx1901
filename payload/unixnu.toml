@@ -1,4 +1,4 @@
-# Configuration of the RMX1971 payload volume.
+# Configuration of the RMX1901 payload volume.
 #
 # Read by UniXNU.efi from \EFI\UniXNU\unixnu.toml on the volume it was started
 # from. Until this file existed the application fell back to its built-in
@@ -22,7 +22,7 @@ timeout = 8
 default = "hello"
 
 [ui]
-title = "RMX1971"
+title = "RMX1901"
 layout = "auto"
 
 [[entry]]

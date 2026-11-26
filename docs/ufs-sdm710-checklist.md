@@ -103,3 +103,29 @@ SDM710 的这三项无法从公开资料定死，必须从设备上读，否则�
 4. **中断**：GIC_SPI 265，与 SDM845 相同。
 
 适配面因此从"重写驱动"缩小为"三个常量 + 一条分支"，风险显著可控。
+
+## 9. U-Boot 时钟回归（2026-11-27）
+
+设备上的 U-Boot 串口输出：
+
+```
+qcom-ufshcd ufshcd@1d84000: no reset control, ret:-2 (continuing)
+qcom-ufshcd ufshcd@1d84000: Warning: cannot get reset GPIO
+qcom-ufshcd ufshcd@1d84000: failed to initialize clocks, err:-2
+qcom-ufshcd ufshcd@1d84000: Host controller init failed, err:-2
+qcom-ufshcd ufshcd@1d84000: ufshcd_probe() failed, ret:-2
+```
+
+`-2` 是 `-ENOENT`。根因不是硬件，而是板级 DTS：commit `d163341` 为了“first probe”删掉了
+`ufs_mem_hc` 和 `ufs_mem_phy` 的 `clocks` / `clock-names`。但 `ufs_qcom_init()` 的
+`clk_get_bulk()` 需要继承来的 9 个时钟，PHY 驱动 `qmp_ufs_clk_init()` 需要 `ref` /
+`ref_aux`，两者都会因属性缺失直接失败。
+
+处理：恢复这两个节点的 `clocks` / `clock-names`；`resets` /
+`interconnects` / `power-domains` 继续删除（optional-reset 补丁会容忍前者缺失，后两者被驱动忽略）。
+`0001-clk-sdm670-add-ufs-phy-rx-symbol-1.patch` 补上 `GCC_UFS_PHY_RX_SYMBOL_1_CLK`，
+否则恢复时钟后会回到 `unknown clock ID 137`。
+
+下一项测量：重建 `boot-ufs.img`，确认 probe 通过、再用 `md.l` 读 CAP/VER 并做 LUN0 块读取。
+`cannot get reset GPIO` 当前只是 warning；后续若链路训练失败，再回头核对 GPIO 150 的 TLMM
+绑定，以及 DTS 继承的 `lanes-per-direction = <2>` 与设备 DTB 实测的 1 lane 是否一致。

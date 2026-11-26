@@ -38,11 +38,14 @@ inputs = [
 [[area]]
 id = "storage"
 status = "planned"
-next_measurement = "核对 ShengUfs 常量与 SDM710 差异：UFSHCD 版本（2.1 vs 3.x）、PHY 基址（SDM710 疑为 0x1d87000）、apps-SMMU 基址与 stream ID、GCC 时钟门控。"
+next_measurement = "重建 boot-ufs.img 验证恢复 clocks/clock-names 后 UFS probe 能否通过；若 PHY 报 lane 错误，核对 DTS 继承的 lanes-per-direction=<2> 与设备 DTB 实测的 1 lane；之后再用 md.l 读 CAP/VER 并验证 LUN0 块读取。"
 inputs = [
-  "Controller 0x1d84000 (same offset as reference), 4 KiB logical blocks.",
-  "ShengUfs reference targets SM8550: verify version register, PHY range, SMMU context, GCC branch.",
-  "Root volume and payload.adt root_match_volume_uuid still undefined for this device.",
+  "U-Boot md.l: 0x1d84000 CAP=0x1587031F, VER=0x00000210 (UFSHCI 2.1), 32 slots / 32-byte UTRD.",
+  "ColorOS C.14 DTB: ufshc@1d84000 len 0x3000, SPI IRQ 265, phy@1d87000 len 0xe00, 1 lane, no iommus, GCC clocks 0xb1/0xb7/0x89/0xb3/0xb5/0x92/0x90 + XO, reset 0x0e.",
+  "U-Boot device run: qcom-ufshcd failed to initialize clocks err:-2 -> Host controller init failed -> ufshcd_probe() failed ret:-2; -2 is -ENOENT.",
+  "Cause: dts/sdm710-realme-rmx1901.dts deleted clocks/clock-names on ufs_mem_hc and ufs_mem_phy; ufs_qcom_init() clk_get_bulk() and qmp_ufs_clk_init() require them.",
+  "Fix applied locally: restore clocks/clock-names; keep resets/interconnects/power-domains deleted. 0001-clk-sdm670 patch supplies GCC_UFS_PHY_RX_SYMBOL_1_CLK.",
+  "Root volume UUID is set in board.toml payload.adt (04769D26-2CA0-4825-B443-E2E5F88300F2); still needs on-device mount verification.",
 ]
 
 [[area]]

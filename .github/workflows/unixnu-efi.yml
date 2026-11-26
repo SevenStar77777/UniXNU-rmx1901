@@ -236,7 +236,7 @@ jobs:
           cp kernel.macho "$RUNNER_TEMP/kernel.macho"
           cd unixnu-src
           ./unixnu fetch sdm710
-          ./unixnu defconfig rmx1971_defconfig
+          ./unixnu defconfig rmx1901_defconfig
           ./unixnu build payload --kernel "$RUNNER_TEMP/kernel.macho" \
             --edk2 "${{ github.workspace }}/Mu_Basecore" \
             --uefi "${{ github.workspace }}/uefi-font"

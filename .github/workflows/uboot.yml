@@ -1,10 +1,8 @@
-name: U-Boot for rmx1971
+name: U-Boot for rmx1901
 
 on:
   push:
     branches: [main]
-    # Only the inputs of this build. Without the filter every UniXNU-side commit
-    # would rebuild the firmware for six minutes to produce identical bytes.
     paths:
       - "board/**"
       - "dts/**"
@@ -44,9 +42,6 @@ jobs:
       - name: Build paint stub
         run: bash scripts/build-stub.sh out-stub
 
-      # Separate from the firmware build on purpose: if this toolchain path
-      # breaks, the boot images below are still worth shipping, and the
-      # artifact step is told to tolerate a missing hello.efi.
       - name: Build EFI payload
         continue-on-error: true
         run: bash scripts/build-payload.sh out-payload
@@ -56,15 +51,13 @@ jobs:
 
       - name: Report
         run: |
-          sha256sum out/boot.img out/boot-boarddtb.img out/boot-probe.img \
-            out/boot-diag.img out/boot-usb.img \
-            out-stub/boot-stub.img out-stub/paint-fb.bin \
-            out/stock-fb.bin \
-            out/dts/upstream/src/arm64/qcom/sdm710-realme-rmx1971.dtb \
+          sha256sum out/boot.img out/boot-probe.img out/boot-diag.img out/boot-usb.img \
+            out-stub/boot-stub.img out-stub/paint-fb.bin out/stock-fb.bin \
+            out/dts/upstream/src/arm64/qcom/sdm710-realme-rmx1901.dtb \
             out/u-boot+dtb.bin > out/SHA256SUMS
           cat out/SHA256SUMS >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
-          grep -E "^(CONFIG_EFI_LOADER|CONFIG_VIDEO_SIMPLE|CONFIG_SYS_CONSOLE_IS_IN_ENV|CONFIG_UFS_QCOM|CONFIG_DEFAULT_DEVICE_TREE|CONFIG_EFI_PARTITION|CONFIG_CMD_PART|CONFIG_CMD_FAT|CONFIG_FS_FAT|CONFIG_CMD_FS_GENERIC|CONFIG_FASTBOOT_FLASH_BLOCK|CONFIG_CMD_FASTBOOT|CONFIG_FASTBOOT_FLASH_BLOCK_INTERFACE_NAME|CONFIG_USB_DWC3_GADGET)=" \
+          grep -E "^(CONFIG_EFI_LOADER|CONFIG_VIDEO_SIMPLE|CONFIG_SYS_CONSOLE_IS_IN_ENV|CONFIG_UFS_QCOM|CONFIG_DEFAULT_DEVICE_TREE|CONFIG_EFI_PARTITION|CONFIG_CMD_PART|CONFIG_CMD_FAT|CONFIG_FS_FAT|CONFIG_CMD_FS_GENERIC|CONFIG_FASTBOOT_FLASH_BLOCK|CONFIG_CMD_FASTBOOT|CONFIG_USB_DWC3_GADGET)=" \
             out/.config >> "$GITHUB_STEP_SUMMARY" || true
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           echo '### paint-fb' >> "$GITHUB_STEP_SUMMARY"
@@ -78,21 +71,17 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: rmx1971-uboot
+          name: rmx1901-uboot
           include-hidden-files: true
           if-no-files-found: warn
-          # The default is 90 days, and artifact storage is billed by GB-month past the
-          # 500 MB every plan includes. Five boot images per run fills that up in a
-          # fortnight. A week is enough to flash and fall back from one image.
           retention-days: 7
           path: |
             out/boot.img
-            out/boot-boarddtb.img
             out/boot-probe.img
             out/boot-diag.img
             out/boot-usb.img
             out/SHA256SUMS
-            out/dts/upstream/src/arm64/qcom/sdm710-realme-rmx1971.dtb
+            out/dts/upstream/src/arm64/qcom/sdm710-realme-rmx1901.dtb
             out/.config
             out-stub/boot-stub.img
             out-stub/paint-fb.bin

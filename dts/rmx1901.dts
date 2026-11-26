@@ -1,0 +1,26 @@
+#include/ "sdm710.dtsi"
+
+/ {
+	model = "realme X";
+	compatible = "realme,rmx1901", "qcom,sdm710";
+	#address-cells = <2>;
+	#size-cells = <2>;
+
+	/* 1.97 GiB window above 0x1_0000_0000 (6 GiB total LPDDR4) */
+	memory@100000000 {
+		device_type = "memory";
+		reg = <0x1 0x00000000 0x0 0x7e2c0000>;
+	};
+};
+
+/* Eight Kryo 360 cores: 2x Cortex-A75 + 6x Cortex-A55 */
+&cpus {
+	cpu@0 { device_type = "cpu"; compatible = "arm,cortex-a55"; reg = <0x0>; };
+	cpu@100 { device_type = "cpu"; compatible = "arm,cortex-a55"; reg = <0x100>; };
+	cpu@200 { device_type = "cpu"; compatible = "arm,cortex-a55"; reg = <0x200>; };
+	cpu@300 { device_type = "cpu"; compatible = "arm,cortex-a55"; reg = <0x300>; };
+	cpu@400 { device_type = "cpu"; compatible = "arm,cortex-a55"; reg = <0x400>; };
+	cpu@500 { device_type = "cpu"; compatible = "arm,cortex-a55"; reg = <0x500>; };
+	cpu@600 { device_type = "cpu"; compatible = "arm,cortex-a75"; reg = <0x600>; };
+	cpu@700 { device_type = "cpu"; compatible = "arm,cortex-a75"; reg = <0x700>; };
+};

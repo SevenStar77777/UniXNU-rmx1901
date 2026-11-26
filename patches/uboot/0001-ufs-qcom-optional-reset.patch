@@ -1,0 +1,28 @@
+--- a/drivers/ufs/ufs-qcom.c
++++ b/drivers/ufs/ufs-qcom.c
+@@ -110,6 +110,9 @@
+ {
+ 	struct ufs_qcom_priv *priv = dev_get_priv(hba->dev);
+ 	int ret;
++
++	if (!priv->core_reset.dev)
++		return 0;
+ 
+ 	ret = reset_assert(&priv->core_reset);
+ 	if (ret) {
+@@ -639,12 +642,10 @@
+ 	if (!IS_ERR(path))
+ 		icc_set_bw(path, 0, UFS_CPU_MAX_BANDWIDTH);
+ 
+-	/* get resets */
++	/* get resets; board firmware may already own the controller */
+ 	ret = reset_get_by_name(dev, "rst", &priv->core_reset);
+-	if (ret) {
+-		dev_err(dev, "failed to get reset, ret:%d\n", ret);
+-		return ret;
+-	}
++	if (ret)
++		dev_warn(dev, "no reset control, ret:%d (continuing)\n", ret);
+ 
+ 	ret = gpio_request_by_name(dev, "reset-gpios", 0, &priv->reset, GPIOD_IS_OUT);
+ 	if (ret) {

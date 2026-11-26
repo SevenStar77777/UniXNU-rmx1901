@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build U-Boot for realme X (RMX1901, SDM710) and pack into a boot image.
+# Build U-Boot for realme X (RMX1901) and pack it into a boot image.
 set -euo pipefail
 
 UB=${1:-uboot}
@@ -15,8 +15,9 @@ build() { make -s O="$1" -j"$(nproc)" DEVICE_TREE="$DEVICE_TREE" CROSS_COMPILE="
 require_config() {
 	local dir=$1 sym; shift
 	for sym in "$@"; do
-		grep -qx "CONFIG_${sym}=y" "$dir/.config" || { echo "error: CONFIG_$sym missing" >&2; exit 1; }
+		grep -qx "CONFIG_${sym}=y" "$dir/.config" || { echo "error: CONFIG_$sym missing from $dir/.config" >&2; exit 1; }
 	done
+	echo "    required config ok: $*"
 }
 
 fix_image_header() {
@@ -37,7 +38,8 @@ PY
 }
 
 make_payload() {
-	local dir=$1 out=$2 nodtb="$dir/u-boot-nodtb.bin" dtb="$dir/$DTB_REL" bin="$dir/u-boot+dtb.bin"
+	local dir=$1 out=$2
+	local nodtb="$dir/u-boot-nodtb.bin" dtb="$dir/$DTB_REL" bin="$dir/u-boot+dtb.bin"
 	[ -f "$nodtb" ] || { echo "error: $nodtb missing" >&2; exit 1; }
 	[ -f "$dtb" ] || { echo "error: $dtb missing" >&2; exit 1; }
 	cat "$nodtb" "$dtb" > "$bin"
@@ -50,18 +52,25 @@ pack() { python3 "$ROOT/scripts/pack-boot.py" "$1" --dtb-table "$OUT_ABS/stock-f
 cd "$UB"
 echo "== defconfig"
 make -s O="$OUT_ABS" qcom_defconfig qcom-phone.config rmx1901.config
-require_config "$OUT_ABS" EFI_PARTITION CMD_PART CMD_FAT FS_FAT CMD_FS_GENERIC FASTBOOT_FLASH_BLOCK CMD_FASTBOOT USB_DWC3_GADGET FASTBOOT_OEM_RUN FASTBOOT_CMD_OEM_CONSOLE CONSOLE_RECORD
+require_config "$OUT_ABS" EFI_PARTITION CMD_PART CMD_FAT FS_FAT CMD_FS_GENERIC \
+	FASTBOOT_FLASH_BLOCK CMD_FASTBOOT USB_DWC3_GADGET FASTBOOT_OEM_RUN \
+	FASTBOOT_CMD_OEM_CONSOLE CONSOLE_RECORD
 
 echo "== build"
 build "$OUT_ABS"
 
-python3 "$ROOT/scripts/patch-stock-dtb.py" "$ROOT/firmware/stock-appended-dtbs.bin" "$OUT_ABS/stock-fb.bin"
+python3 "$ROOT/scripts/patch-stock-dtb.py" "$ROOT/firmware/stock-appended-dtbs.bin" \
+        "$OUT_ABS/stock-fb.bin"
 
 echo "== pack"
 make_payload "$OUT_ABS" "$OUT_ABS/payload.gz"
 pack "$OUT_ABS/payload.gz" "$OUT_ABS/boot.img"
 
-ls -l "$OUT_ABS/boot.img" "$OUT_ABS/stock-fb.bin" "$OUT_ABS/u-boot+dtb.bin"
+cat "$OUT_ABS/payload.gz" "$OUT_ABS/$DTB_REL" \
+    > "$OUT_ABS/payload-external.gz"
+python3 "$ROOT/scripts/pack-boot.py" "$OUT_ABS/payload-external.gz" -o "$OUT_ABS/boot-boarddtb.img"
+
+ls -l "$OUT_ABS/boot.img" "$OUT_ABS/boot-boarddtb.img" "$OUT_ABS/stock-fb.bin" "$OUT_ABS/u-boot+dtb.bin"
 
 build_env_variant() {
 	local name=$1 envf=$2 img=$3 dir

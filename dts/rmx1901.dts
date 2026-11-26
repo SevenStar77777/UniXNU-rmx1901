@@ -1,4 +1,4 @@
-#include/ "sdm710.dtsi"
+#include "sdm710.dtsi"
 
 / {
 	model = "realme X";

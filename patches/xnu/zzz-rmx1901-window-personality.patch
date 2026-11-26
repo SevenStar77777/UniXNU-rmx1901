@@ -1,10 +1,10 @@
 diff --git a/iokit/KernelConfigTables.cpp b/iokit/KernelConfigTables.cpp
 --- a/iokit/KernelConfigTables.cpp
 +++ b/iokit/KernelConfigTables.cpp
-@@ -61,4 +61,12 @@
-     "     'IOProviderClass' = IOService;"
-     "     'IOExclaveProxy'  = 1:32;"
+@@ -105,4 +105,12 @@
+     "     'IOProbeScore'    = 500:32;"
      "   }"
+ #endif
 +#if defined(XNU_RMX1901_ROOT_WINDOWS) && XNU_RMX1901_ROOT_WINDOWS
 +    "   ,{"
 +    "     'IOClass'         = Rmx1901WindowPublisher;"

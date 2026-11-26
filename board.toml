@@ -1,47 +1,19 @@
-# Board description of the Realme 5 Pro (RMX1971, SDM712), read by the UniXNU
-# build driver. Format 2: the ARM64, SoC, OS and device layers merge and this
-# file states only what the board changes.
-#
-# The SoC layer is sdm710: SDM712 is the same die as SDM710 with a 100 MHz
-# higher big-core clock (2.3 vs 2.2 GHz) and the same 2x Cortex-A75 + 6x
-# Cortex-A55, GIC-500, 19.2 MHz counter, PM660/PM660L and X15 modem, so every
-# platform fact of the shared layer applies unchanged. Nothing here emulates or
-# downclocks anything; the only 712-specific item is the top CPU OPP, which is a
-# table entry in the clock driver and not part of the boot path.
-#
-# Bring-up stage: XNU is started by this handset's own U-Boot. The ABL boots
-# boot.img, U-Boot brings up UEFI, the EFI boot manager finds
-# \EFI\BOOT\BOOTAA64.EFI on the payload volume and runs UniXNU.efi there.
-# DarwinBoot.efi travels in the payload volume as a [[driver]] of unixnu.toml.
-#
-# What this board adds on top of the shared description:
-#   storage  - UFS at 0x1d84000, six LUNs of 4 KiB blocks; the XNU-side block
-#              driver for it lives in patches/xnu/. The payload volume sits on
-#              the vm-system partition.
-#   display  - the framebuffer the ABL leaves behind is 1080x2340x4 at
-#              0x9c000000; the same boot-progress panel applies.
-#   panel/etc - see dts/rmx1971.dts.
+# Board description of realme X (RMX1901, SDM710), read by the UniXNU build driver.
+# For the RMX1901 port: UFS first_lba=0x163908, blocks=0xC8A6F3 (4KiB).
 
 schema_version = 2
 
 [board]
-name = "rmx1971"
+name = "rmx1901"
 soc = "SDM710"
 soc_source = "sdm710"
 os_profile = "ipados-17.7.11-21H461"
-description = "Realme 5 Pro (RMX1971)"
-kit = "rmx1971"
+description = "realme X (RMX1901)"
+kit = "rmx1901"
 
-# ArmDTPlatform drives the platform expert from dts/rmx1971.dts. ArmCpu is the
-# board's copy in drivers/ArmCpu (non-Apple timer INTID, /cpus probe counters,
-# sheng-smp). DarwinBoot is the loader the payload starts. XnuPrelink is the
-# prelink kit the OS profile names.
 [components]
 include = ["ArmDTPlatform", "ArmCpu", "XnuPrelink", "DarwinBoot"]
 
-# The unchanged iPad7,1 iPadOS 17.7.11 restore image the UniXNU iPadOS profile
-# ships. SDM710/712 (Kryo 360, Cortex-A75/A55) is ARMv8.2 without pointer
-# authentication, so it runs arm64 userlands only.
 [ipsw]
 url = "https://updates.cdn-apple.com/2025SpringFCS/fullrestores/122-77166/DCA6CFE8-90E9-4B92-880D-3DE171798E40/iPad_Pro_HFR_17.7.11_21H461_Restore.ipsw"
 product = "iPad7,1"
@@ -52,28 +24,9 @@ chip_id = 0x8011
 board_id = 12
 fetch = ["KernelCache", "DeviceTree", "StaticTrustCache", "Cryptex1,SystemTrustCache"]
 
-# The kernel step runs on macOS + Xcode; the package, payload and boot image
-# steps run anywhere. defconfig overrides the fragments in order.
-#
-# The kit archives linked into this board's kernel:
-#   boot-progress - draws the kernel console on the framebuffer. Without it every
-#                   line goes to a serial port this handset does not have, so it
-#                   is the difference between a bring-up and a black screen.
-#   probes        - the dormant legacy-display probe the DEVELOPMENT kernel
-#                   references unconditionally; without it the link does not close.
-#   pmgr          - advertises the ApplePMGRNub that AMFI looks for (sheng-pmgr=2).
-# The hardware kits are deliberately not linked. The shared layer's USB console
-# kit drives a CDC-ACM gadget and its eMMC kit drives SDCC1; this board has UFS
-# and no working USB gadget, so both are inert here. Until a UFS kit exists,
-# package/Rmx1971Stubs.c satisfies the symbols boot-progress weak-imports so the
-# diagnostic build stays inert instead of faulting on address zero.
 [kernel]
-defconfig = "rmx1971_defconfig"
+defconfig = "rmx1901_defconfig"
 config_fragments = ["arch:configs/common.config", "soc:configs/sdm710.config", "os:configs/ipados.config"]
-# device: this repository's own series. It carries the only piece of XNU that is specific
-# to this handset: bsd/dev/sweet_ufs.c, a read-only block driver for the internal UFS that
-# makes the userdata partition a BSD disk (ufsroot0). Without it XNU reaches bsd_init and
-# then idles for ever waiting for a root device -- which is exactly what the first boots did.
 patch_series = ["arch:patches/xnu/series", "soc:patches/xnu/series", "os:patches/xnu/series", "device:patches/xnu/series"]
 archives = [
   "build-corecrypto-14.py",
@@ -81,22 +34,18 @@ archives = [
   "component:ArmDTPlatform",
   "component:ArmCpu",
   "build-libpthread-kernel.py",
-  "build-rmx1971-probes.py",
+  "build-rmx1901-probes.py",
   "build-boot-progress.py",
-  "build-rmx1971-pmgr.py",
+  "build-rmx1901-pmgr.py",
 ]
 
 [device_tree]
-source = "device:dts/rmx1971.dts"
+source = "device:dts/rmx1901.dts"
 include_dirs = ["soc:dts"]
 
-# userdata of LUN0, read from the device's own GPT: entry 14, LBA 0x198900 with
-# 0xd11ef3 blocks of 4096 bytes. Note the block size -- this UFS reports 4 KiB
-# logical blocks, where eMMC-backed boards use 512-byte sectors, so every LBA
-# below is in 4 KiB units and lba_bytes says so.
 [userdata]
-first_lba = 0x198900
-last_lba = 0xeaa7f2
+first_lba = 0x163908
+last_lba = 0xDEFDFA
 lba_bytes = 4096
 windows = [
   { name = "OS", component = "OS" },
@@ -104,27 +53,13 @@ windows = [
 ]
 
 [payload]
-volume = "RMX1971ESP"
+volume = "RMX1901ESP"
 size_mib = 128
 loader = "payload"
-title = "rmx1971 first boot: XNU to console"
-# The window dts/rmx1971.dts declares, and the one ios-sweet already boots XNU
-# with on this handset: the four GiB line is where the usable second half of
-# LPDDR4 starts, 0x1_0000_0000 + 0x7E2C_0000 = 1.97 GiB.
+title = "rmx1901 first boot: XNU to console"
 dram_size = "0x7e2c0000"
-# The panic screen is off for the first boot: scripts/patch-xnu-entry-probe.py builds it into
-# the padding at the end of the kernel text, and this kernel's padding is 0xa30 bytes while
-# the screen assembles to 0xa37 -- seven bytes too many, so the step refuses to write it. The
-# entry probe (the stage bars) is patched in separately by scripts/make-uboot-payload.py with
-# --no-reset, and the console itself is the boot progress layer, so a panic still prints where
-# the console is up. Revisit once the padding or the glyph table has room.
 panic_screen = false
 kernel_args = [
-  # -v: verbose boot. The first boot reached bsd_init and then went idle with no
-  # message after the NVRAM lines, which is indistinguishable from a wait inside a
-  # kext that never matches. Verbose mode floods the console, and the boot progress
-  # panel keeps the *latest* lines -- so the last lines on screen become the answer
-  # to "where did it stop" without adding a single probe.
   "-v",
   "debug=0x14e",
   "kt_fixed_zones=120",
@@ -137,58 +72,19 @@ kernel_args = [
   "armcpu-timer-intid=19",
   "sheng-pmgr=2",
   "amfi_get_out_of_my_way=1",
-  # Root on the internal UFS. rd=ufsroot0 is what makes IOFindBSDRoot call the board's
-  # driver instead of waiting for an IOMedia to appear; ufsroot= names the GPT partition
-  # it should expose (userdata, LUN0 entry 14 at LBA 0x198900 on this unit).
-  #
-  # userdata still holds Android's filesystem, so the mount itself will fail and the kernel
-  # will retry -- that is the expected outcome of this step, and it costs nothing because
-  # the driver refuses writes. What matters is what happens first: the host handover, the
-  # partition geometry, and whether APFS gets far enough to issue a read. Once it does, the
-  # block counts in the panel's UFS row leave zero, which is the proof that the chain from
-  # UFS through the block device layer into a filesystem is complete and only the volume
-  # contents are missing.
   "rd=ufsroot0",
   "ufsroot=userdata",
-  # APFS is not compiled into this kernel: conf/files carries no filesystem at all, so
-  # vfsconf is empty and vfs_mountroot's walk tries nothing and returns ENODEV -- which
-  # is where "cannot mount root, errno = 19" came from, not from the contents of the
-  # partition. UniXNU loads it as a kext from the prelinked kernel
-  # (OSKextLoadKextWithIdentifier at the end of the offline-component probes), and that
-  # call is gated on this argument. Only a DEVELOPMENT build contains the probe; this
-  # board's kernel is one, because it links the display probe's kit.
   "offline-apfs-load=1",
-  # Printed in the panel's title bar ("[ufsb1] UniXNU boot diagnostics ..."), so a
-  # photograph identifies which image is running. Cheap, and it settles "did this
-  # flash actually take" without guessing from behaviour.
-  "sheng-build-tag=ufsb1",
+  "sheng-build-tag=rmx1901-m1",
 ]
 
 [payload.adt]
 chip_id = "8011"
 root_match_volume_uuid = "04769D26-2CA0-4825-B443-E2E5F88300F2"
-# DarwinBoot hands XNU a contiguous window and defaults to 256 MiB when nobody asks for
-# more; the first boot reported exactly that (free4k 173 MiB + wired 83 MB = 256 MiB).
-#
-# Two attempts have narrowed the range. Asking for 0x7e000000 (1.97 GiB, the whole range
-# dts/rmx1971.dts declares) failed before the kernel started: UniXNU answered
-# "rmx1971 first boot returned: out of resources", which is DarwinBoot's
-# EFI_OUT_OF_RESOURCES from AllocatePages. The reason is the memory map, not the RAM:
-# DarwinBoot allocates from the EFI map, and that map is U-Boot's memory node,
-# 0x8000_0000 + 0x7e2c_0000 -- the low half. Inside it the ABL reserved regions end at
-# 0xB8300000, the frame buffer takes 10 MiB at 0x9c000000, the scratch buffer sits at
-# 0xa0000000, and U-Boot itself relocates to the top. What is left contiguous is a little
-# over 1 GiB, and the 52 MiB kernel image plus the EFI images have to fit in the same
-# block, so a 1 GiB request is already too close to the edge to rely on.
-#
-# 512 MiB -- twice the default, comfortably inside that block -- is the value that has to
-# work before anything else does. Giving XNU the full 1.97 GiB needs U-Boot's memory node
-# to describe the high half first; that is a boot image change, tracked separately, and it
-# also makes /chosen/dram-base agree with where the kernel actually lives.
 owned_memory_size = "0x20000000"
 
 [adt.product.string]
-model = "realme,rmx1971"
+model = "realme,rmx1901"
 
 [adt.defaults.u32]
 sleep-disabled = 1

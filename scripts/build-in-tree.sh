@@ -90,3 +90,4 @@ build_env_variant probe board/realme/rmx1901/rmx1901-probe.env boot-probe.img
 build_env_variant diag  board/realme/rmx1901/rmx1901-diag.env  boot-diag.img
 build_env_variant usb   board/realme/rmx1901/rmx1901-usb.env   boot-usb.img
 build_env_variant efi   board/realme/rmx1901/rmx1901-efi.env   boot-efi.img
+build_env_variant md    board/realme/rmx1901/rmx1901-md.env    boot-md.img

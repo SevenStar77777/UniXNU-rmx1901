@@ -1,0 +1,59 @@
+# ShengUfs × SDM710 硬件核对表
+
+目的：把官方存储组件 `ShengUfs`（按 SM8550 编写）需要的硬件常量，逐项对照本机 SDM710 的实际值，
+确定接入前必须改动的点。来源固定如下：
+
+- ShengUfs：`UniXNU/ShengUfs@fd420df`（`NativeUfs.cpp`、`SmmuTakeover.h`、`GccUfs.h`、`RootLayout.h`）
+- 同代参考：Linux `arch/arm64/boot/dts/qcom/sdm845.dtsi`（SDM845 与 SDM710 同属 UFS 2.1 代，地址布局高度一致）
+- 本机证据：ColorOS C.14 的设备树中 `1d84000.ufshc`、逻辑块 4096；fastboot `getvar product` = `sdm710`
+
+## 1. 对照表
+
+| 输入 | ShengUfs（SM8550） | SDM845 参考 | SDM710 本机 | 结论 |
+|---|---|---|---|---|
+| UFS 控制器 MMIO | `0x1d84000`，len `0x3000` | `ufshc@1d84000`，std `0x2500` + ice `0x1d90000/0x8000` | `1d84000.ufshc`（已确认） | 基址一致，**长度需按 0x2500 收窄** |
+| PHY | `0x1d80000`，len `0x2000` | `phy@1d87000`，len `0x1000` | 待实测 | **必须改**，SDM710 极可能为 `0x1d87000` |
+| 控制器中断 | 由 ShengUfs 内部路由 | `GIC_SPI 265` | 待实测 | 需从设备树确认 |
+| GCC | `0x100000` | `gcc@100000` | 待实测 | 基址一致，**分支/门控位不同** |
+| apps-SMMU | `0x15000000`，SMMUv2 | `apps_smmu@15000000`，len `0x80000` | 待实测 | 基址一致 |
+| UFS stream ID | `0x60` | `iommus = <&apps_smmu 0x100 0xf>` → **`0x100`** | 待实测 | **必须改**，`0x60` 在本机是别的外设 |
+| stream 掩码 | 单值匹配 | `0xf` | 待实测 | 需带掩码写入 S2CR |
+| UFSHCI 版本 | 3.x（SM8550） | 2.1 | **待读 `VER`@`0x08`** | 决定 UTRD/UTRL 布局与 HCE 语义 |
+| 逻辑块大小 | 4 KiB | 4 KiB | `4096`（已确认） | 一致 |
+| 零拷贝 DMA 上限 | 由 bypass 位宽决定（窄时 32 位） | 同 | 待实测 SMMU 输出位宽 | 窄时只能访问低 4 GiB |
+| 请求队列 | 32 槽，UTRD 32 字节 | 同 | 同 | 一致 |
+
+## 2. 必须先测的三个值
+
+SDM710 的这三项无法从公开资料定死，必须从设备上读，否则接上 `ShengUfs` 后无法判断卡在哪：
+
+| 值 | 读法 | 判据 |
+|---|---|---|
+| `CAP`（`0x00`）、`VER`（`0x08`） | U-Boot 命令行 `md.l 0x1d84000 0x4` | `VER` 为 `0x00000210` 说明是 2.1；`0x00000300` 说明是 3.0 |
+| UFS stream ID | 读 `apps_smmu` 的 S2CR/SMR 表，或从原厂 DTS 的 `iommus` 取 | 与 `sdm845` 的 `0x100` 对比 |
+| PHY 基址 | 读 `0x1d87000` 前 4 字节，非 `0xffffffff`/`0` 即为存在 | 与 `0x1d80000` 对比 |
+
+## 3. 接入前必须改的代码点
+
+| 文件 | 位置 | 改动 |
+|---|---|---|
+| `NativeUfs.cpp` | `smmuBypassStream (0x60, ...)` | 改为本机 stream ID |
+| `NativeUfs.cpp` | host / phy / gcc 常量 | 按上表替换 |
+| `SmmuTakeover.h` | context bank 与输出位宽 | 按本机 SMMU 实测值 |
+| `GccUfs.h` | 分支使能与硬件门控位 | 按 SDM710 GCC 位定义 |
+| `board.toml` | `[components] include`、`[kernel] archives` | 加 `ShengUfs` / `component:ShengUfs` |
+| `configs/rmx1901_defconfig` | — | 开 `CONFIG_XNU_NATIVE_UFS=y` |
+| `board.toml` | `[payload.adt]` | 加 `root_match_volume_uuid` 与 `native-ufs-root=1` |
+
+## 4. 风险
+
+1. **UFSHCI 2.1 与 3.x 的门铃/完成语义不同**。ShengUfs 的完成路径按 3.x 写（UTRD 中断位 + doorbell 清位），在 2.1 上仍需同样机制，但寄存器偏移要逐项核对 `CAP.NUTRS`、`UTRLBA`。
+2. **SMMU 接管是全局副作用**。`SmmuTakeover` 会重写 apps-SMMU 的 context bank；SDM710 上显示（DPU）与 WiFi 也需要 bank，接错会让其它设备一起失效。
+3. **失败无串口**。本机 `printk.disable_uart=1`，只能靠屏幕上的最后一行判断阶段，建议先只做“寄存器读取 + 容量查询”，确认能读到 `CAP/VER` 与 LUN 0 容量后再开根卷。
+
+## 5. 顺序
+
+1. 用 U-Boot 读 `CAP/VER`、PHY、SMMU 三项 → 填满本表“本机”列
+2. 改 `NativeUfs.cpp` / `SmmuTakeover.h` / `GccUfs.h` 常量
+3. `board.toml` + defconfig 接入，只验证“控制器可读 + 容量正确”
+4. 再开根卷（`verified-root`）与持久 Data

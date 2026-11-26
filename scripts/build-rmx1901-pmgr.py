@@ -10,7 +10,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'build/sheng-platform-power'
 OUT.mkdir(parents=True, exist_ok=True)
-source = ROOT / 'package/Rmx1971Pmgr.cpp'
+source = ROOT / 'kits/rmx1901/Rmx1971Pmgr.cpp'
 obj = OUT / 'Rmx1971Pmgr.o'
 record = json.loads((ROOT / 'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/iokit/DEVELOPMENT/IOPlatformExpert.cpo.json').read_text().strip().rstrip(','))
 command, index = [], 0

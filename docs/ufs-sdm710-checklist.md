@@ -80,3 +80,26 @@ SDM710 的这三项无法从公开资料定死，必须从设备上读，否则�
 - [ ] 从设备 DTB 取 `ufs_mem_phy` 基址与 `iommus` stream ID
 - [ ] 给 U-Boot 板级 DTS 补 PHY/clock 节点，验证 UFS 块读取
 - [ ] 依 UFSHCI 2.1 核对 `NativeUfs.cpp` 门铃/完成偏移
+## 8. 设备 DTB 实测（2026-11-26，`fdtpeek.py` 解析 ColorOS C.14 的 fdt.dtb）
+
+| 节点 | 属性 | 值 | 说明 |
+|---|---|---|---|
+| `/soc/ufshc@1d84000` | `reg` | `0x1d84000` len `0x3000` | 与 ShengUfs 常量一致 |
+| | `interrupts` | `<0 0x109 0>` | GIC_SPI 265 |
+| | `phys` | phandle → `ufsphy_mem@1d87000` | PHY 基址确定 |
+| | `iommus` | **不存在** | UFS 不走 apps-SMMU |
+| | `resets` | GCC phandle, id `0x0e` | |
+| | `clocks` | GCC `0xb1 0xb7 0x89 0xb3 0xb5 0x92 0x90` + XO | |
+| | `lanes-per-direction` | `1` | SM8550 参考为 2 |
+| `/soc/ufsphy_mem@1d87000` | `reg` | `0x1d87000` len `0xe00` | |
+| | `compatible` | `qcom,ufs-phy-qmp-v3` | QMP v3 |
+| | `lanes-per-direction` | `1` | |
+
+结论（相对第 1 节的修正）：
+
+1. **PHY**：`0x1d87000` / `0xe00` / 1 lane，替换 ShengUfs 的 `0x1d80000` / `0x2000` / 2 lane。
+2. **SMMU**：本机 UFS 没有 `iommus`，**跳过 `smmuBypassStream(0x60, ...)` 与 context bank 接管**；DMA 直接使用物理地址，注意零拷贝路径的 32 位上限判断要保留。
+3. **时钟/复位**：按上表 GCC ID 与 reset `0x0e` 替换 `GccUfs.h` 的位定义。
+4. **中断**：GIC_SPI 265，与 SDM845 相同。
+
+适配面因此从"重写驱动"缩小为"三个常量 + 一条分支"，风险显著可控。

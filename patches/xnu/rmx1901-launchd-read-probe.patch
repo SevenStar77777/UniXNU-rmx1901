@@ -21,10 +21,10 @@
 +			    vfs_context_ucred(imgp->ip_vfs_context), &rmx_resid2,
 +			    vfs_context_proc(imgp->ip_vfs_context));
 +			snprintf(rmx_buf2, sizeof(rmx_buf2),
-+			    "rmxE2 %s sz=%llx e=%d/%d m=%02x%02x%02x%02x r=%d",
-+			    rmx_path, (unsigned long long)imgp->ip_vattr.va_size,
-+			    (int)error, rmx_err2, rmx_again[0], rmx_again[1],
-+			    rmx_again[2], rmx_again[3], rmx_resid2);
++			    "rmxE2 %s e=%d/%d m=%02x%02x%02x%02x r=%d",
++			    rmx_path, (int)error, rmx_err2, rmx_again[0],
++			    rmx_again[1], rmx_again[2], rmx_again[3],
++			    rmx_resid2);
 +			boot_progress_stage(rmx_buf2);
 +		}
  	}

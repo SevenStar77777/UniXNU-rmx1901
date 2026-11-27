@@ -33,3 +33,8 @@ rmx1901-skip-exec-policy.patch
 # path, so flush the fault page before returning from the recoverable abort.
 # Touches only osfmk/arm64/sleh.c (no overlap with the other board patches).
 rmx1901-post-exec-tlb-flush.patch
+# Diagnostic: after exec_activate_image() reads /sbin/launchd, paint the first
+# four header bytes plus resid onto the on-screen stage panel. One build tells
+# us whether errno 8 (ENOEXEC) is an all-zero/short read, a valid Mach-O magic
+# that a later gate rejects, or an encrypted/corrupt image. No behavior change.
+rmx1901-launchd-magic-probe.patch

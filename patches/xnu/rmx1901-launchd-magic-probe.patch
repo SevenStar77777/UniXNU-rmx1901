@@ -1,0 +1,24 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+index 8bba078..c2e9d88 100644
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -2296,6 +2296,19 @@ again:
+ 		memset(imgp->ip_vdata + (PAGE_SIZE - resid), 0x0, resid);
+ 	}
+ 
++	/* rmx1901: reveal launchd header to the on-screen stage panel.
++	 * magic cffaedfe=MH_MAGIC_64(LE), cefaedfe=MH_CIGAM_64,
++	 * cafebabe=FAT_MAGIC, 00000000=all-zero read, else=encrypted/corrupt.
++	 * resid=PAGE_SIZE means nothing was read. */
++	{
++		unsigned char *rmx_h = (unsigned char *)imgp->ip_vdata;
++		char rmx_buf[96];
++		snprintf(rmx_buf, sizeof(rmx_buf),
++		    "rmxE magic=%02x%02x%02x%02x resid=%d",
++		    rmx_h[0], rmx_h[1], rmx_h[2], rmx_h[3], (int)resid);
++		boot_progress_stage(rmx_buf);
++	}
++
+ encapsulated_binary:
+ 	/* Limit the number of iterations we will attempt on each binary */
+ 	if (++itercount > EAI_ITERLIMIT) {

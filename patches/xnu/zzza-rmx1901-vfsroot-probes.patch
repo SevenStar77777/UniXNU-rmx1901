@@ -39,11 +39,3 @@ index c23e7fd..b6fd09a 100644
  		if (require_rootauth) {
  			/* enforce sealedness */
  			int autherr = VNOP_IOCTL(rootvnode, FSIOC_KERNEL_ROOTAUTH, NULL, 0, vfs_context_kernel());
-@@ -951,6 +964,7 @@ bsd_init(void)
- 				panic("rootvp not authenticated after mounting");
- 			}
- 		}
-+		boot_progress_stage("rmx probe: post ROOTAUTH");
- 	}
- 
- 

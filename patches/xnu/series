@@ -5,5 +5,13 @@ sweet-ufs-root.patch
 # so the exported UFS read/geometry primitives are present.
 zzz-rmx1901-window-personality.patch
 # Fine-grained boot_progress_stage probes around bsd_init()'s VFS_ROOT path.
-# Last, so it sees the final bsd_init.c produced by all other patches.
 zzza-rmx1901-vfsroot-probes.patch
+# Trust-cache runtime bring-up, ported from 57UU/UniXNU-sirius (same SDM710).
+# The ARM64/BCM2837 profile compiles trust_cache_runtime_init() out unless
+# XNU_NATIVE_TRUST_CACHE is passed; without the call the bundle in the payload
+# is never loaded and /sbin/launchd exec fails with errno 8 (ENOEXEC).
+rmx1901-trust-cache-guard.patch
+rmx1901-trust-cache-init.patch
+# Synchronous execve trace from the sirius bring-up: if exec still fails, the
+# panel shows exactly which step returns errno 8 instead of only the final panic.
+rmx1901-exec-trace.patch

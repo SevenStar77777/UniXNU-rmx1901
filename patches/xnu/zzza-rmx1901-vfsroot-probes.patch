@@ -1,5 +1,5 @@
 diff --git a/bsd/kern/bsd_init.c b/bsd/kern/bsd_init.c
-index c23e7fd..9a1c8c5 100644
+index c23e7fd..b6fd09a 100644
 --- a/bsd/kern/bsd_init.c
 +++ b/bsd/kern/bsd_init.c
 @@ -918,16 +918,19 @@ bsd_init(void)
@@ -20,5 +20,30 @@ index c23e7fd..9a1c8c5 100644
  	lck_rw_unlock_exclusive(&rootvnode_rw_lock);
 +	boot_progress_stage("rmx probe: post set_rootvnode");
  	init_rootvnode = NULLVP;  /* use rootvnode after this point */
+ 
+ 
+@@ -944,6 +947,16 @@ bsd_init(void)
+ 		require_rootauth = TRUE;
+ #endif // XNU_TARGET_OS_OSX && defined(__arm64__)
+ 
++		/* RMX1901: skip Apple sealed-root auth on non-SEP hardware */
++		{
++			int rmx_allow_unverified = 0;
++			PE_parse_boot_argn("rmx1901-allow-unverified", &rmx_allow_unverified, sizeof(rmx_allow_unverified));
++			if (rmx_allow_unverified) {
++				require_rootauth = FALSE;
++			}
++		}
++		boot_progress_stage("rmx probe: pre ROOTAUTH");
++
+ 		if (require_rootauth) {
+ 			/* enforce sealedness */
+ 			int autherr = VNOP_IOCTL(rootvnode, FSIOC_KERNEL_ROOTAUTH, NULL, 0, vfs_context_kernel());
+@@ -951,6 +964,7 @@ bsd_init(void)
+ 				panic("rootvp not authenticated after mounting");
+ 			}
+ 		}
++		boot_progress_stage("rmx probe: post ROOTAUTH");
+ 	}
  
  

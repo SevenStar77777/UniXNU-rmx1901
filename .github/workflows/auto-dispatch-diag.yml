@@ -4,6 +4,7 @@ name: Auto dispatch early-freeze diagnostic build
 # patch that makes boot_progress_stage() paint the latest stage synchronously.
 # When that kernel run succeeds, it dispatches the EFI payload workflow with the
 # exact run id. No large source file is rewritten in git for this diagnostic.
+# Round 2: also picks up the bsd_init VFS_ROOT probe patch in patches/xnu/series.
 on:
   push:
     branches: [main]

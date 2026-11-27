@@ -1,0 +1,22 @@
+diff --git a/osfmk/arm64/sleh.c b/osfmk/arm64/sleh.c
+index ff5296d..568610c 100644
+--- a/osfmk/arm64/sleh.c
++++ b/osfmk/arm64/sleh.c
+@@ -1848,6 +1848,17 @@ handle_kernel_abort(arm_saved_state_t *state, uint32_t esr, vm_offset_t fault_ad
+ 		}
+ 
+ 		if (result == KERN_SUCCESS) {
++			/* rmx1901: ported from 57UU/UniXNU-sirius (same SDM710). pid 1's exec
++			 * faults writing argv into the init map; vm_fault installs the PTE but
++			 * the retried copyout faults again because a translation fault is still
++			 * cached in the TLB and the invalidation never reached this address.
++			 * copyio has no restart path, so make the mapping visible before retry.
++			 */
++			if (recover != NULL) {
++				extern void flush_mmu_tlb_region(vm_offset_t va, unsigned length);
++				flush_mmu_tlb_region(fault_addr & ~(vm_offset_t)(PAGE_SIZE - 1),
++				    (unsigned)PAGE_SIZE);
++			}
+ 			return;
+ 		}
+ 

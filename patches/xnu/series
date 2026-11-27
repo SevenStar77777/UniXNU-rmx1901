@@ -26,3 +26,10 @@ rmx1901-exec-panel.patch
 # With rmx1901-skip-cs=1 this records the answer and lets the image run, which
 # is exactly how sirius reached "execve activate 0" and userland.
 rmx1901-skip-exec-policy.patch
+# Post-exec userland fix, ported from 57UU/UniXNU-sirius (same SDM710). After
+# pid 1's exec writes argv into the init map, vm_fault installs the PTE but the
+# retried copyout faults again because a stale translation fault is cached in
+# the TLB and the invalidation never reaches that address. copyio has no restart
+# path, so flush the fault page before returning from the recoverable abort.
+# Touches only osfmk/arm64/sleh.c (no overlap with the other board patches).
+rmx1901-post-exec-tlb-flush.patch

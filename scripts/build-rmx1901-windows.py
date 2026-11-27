@@ -12,7 +12,10 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / 'package/Rmx1901WindowPublisher.cpp'
+# The device repository's package/ is mounted into the assembled tree as
+# kits/<kit>/ (see UniXNU scripts/unixnu/tree.py). The other board archive
+# recipes use the same path; tree/package/ is the UniXNU core package.
+SOURCE = ROOT / 'kits/rmx1901/Rmx1901WindowPublisher.cpp'
 OUT = ROOT / 'build/rmx1901-windows'
 RECORD = ROOT / 'build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/iokit/DEVELOPMENT/IOPlatformExpert.cpo.json'
 

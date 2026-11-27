@@ -1,11 +1,11 @@
 diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
-index 69ed4bf..297d1dc 100644
+index f566265..2b78d1e 100644
 --- a/bsd/kern/kern_exec.c
 +++ b/bsd/kern/kern_exec.c
 @@ -7905,6 +7905,25 @@ process_signature(proc_t p, struct image_params *imgp)
+ 	 * which is unexpected but security framework does not
  	 * approve of exec, kill and return immediately.
  	 */
- 	boot_progress_process_stage(proc_getpid(p),p->p_name,"exec MAC policy REFUSED");
 +	/* Bring-up instrument: the policy answer comes from AMFI, which asks a trust cache this port
 +	 * does not fully supply, so every image can be refused and launchd killed with
 +	 * EXEC_EXIT_REASON_SECURITY_POLICY (seen as errno 8 on the launchdsuffix=release path).
@@ -26,5 +26,5 @@ index 69ed4bf..297d1dc 100644
 +		}
 +	}
  	if (imgp->ip_mac_return != 0) {
+ 		boot_progress_process_stage(proc_getpid(p),p->p_name,"exec MAC policy REFUSED");
  		KERNEL_DEBUG_CONSTANT(BSDDBG_CODE(DBG_BSD_PROC, BSD_PROC_EXITREASON_CREATE) | DBG_FUNC_NONE,
- 		    proc_getpid(p), OS_REASON_EXEC, EXEC_EXIT_REASON_SECURITY_POLICY, 0, 0);

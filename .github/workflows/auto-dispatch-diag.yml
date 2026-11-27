@@ -1,0 +1,105 @@
+name: Auto dispatch early-freeze diagnostic build
+
+# One-shot helper: committing this file starts the kernel build with a build-time
+# patch that makes boot_progress_stage() paint the latest stage synchronously.
+# When that kernel run succeeds, it dispatches the EFI payload workflow with the
+# new run id. No large source file is rewritten in git for this diagnostic.
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/auto-dispatch-diag.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch-kernel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch kernel build with synchronous stage painting
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRE_BUILD: |
+            python3 - <<'PY'
+            import os
+            from pathlib import Path
+            p = Path(os.environ['DEVICE_DIR']) / 'package/BootProgress.c'
+            s = p.read_text()
+            old1 = '''  bp_stage(&state,text,now);
+              if (!started && !state.frozen) draw(now);
+              release();
+            }
+            void boot_progress_process_stage(int pid,const char *name,const char *text) {'''
+            new1 = '''  bp_stage(&state,text,now);
+              // Once the monitor thread owns the panel, an IRQ-off hard lock stops all
+              // refreshes and the screen keeps showing an old snapshot. Paint the latest
+              // stage synchronously too, so the last stage before a freeze stays visible.
+              if (started && display.bound) {
+                capture(5,text);
+                bp_line(&display,5,text,0xff00ffff);
+              }
+              if (!started && !state.frozen) draw(now);
+              release();
+            }
+            void boot_progress_process_stage(int pid,const char *name,const char *text) {'''
+            old2 = '''  snprintf(stamped,sizeof(stamped),"target pid=%d %.24s %.70s",pid,name,text);
+              bp_stage(&state,stamped,now);
+              if(!started && !state.frozen)draw(now);
+              release();
+            }'''
+            new2 = '''  snprintf(stamped,sizeof(stamped),"target pid=%d %.24s %.70s",pid,name,text);
+              bp_stage(&state,stamped,now);
+              if (started && display.bound) {
+                capture(5,stamped);
+                bp_line(&display,5,stamped,0xff00ffff);
+              }
+              if(!started && !state.frozen)draw(now);
+              release();
+            }'''
+            if s.count(old1) != 1 or s.count(old2) != 1:
+                raise SystemExit('BootProgress.c patch anchors changed; refusing to guess')
+            s = s.replace(old1, new1).replace(old2, new2)
+            p.write_text(s)
+            print('patched BootProgress.c: synchronous stage painting enabled')
+            PY
+        run: |
+          set -euo pipefail
+          gh workflow run unixnu-kernel.yml --ref main \
+            -f device_repository=SevenStar77777/UniXNU-rmx1901 \
+            -f device_ref=main \
+            -f unixnu_ref=main \
+            -f defconfig=rmx1901_defconfig \
+            -f steps=kernel \
+            -f xcode=26.6 \
+            -f pre_build="$PRE_BUILD"
+
+  dispatch-efi:
+    needs: dispatch-kernel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for the new kernel run and dispatch the payload volume
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          found=""
+          for i in $(seq 1 120); do
+            run=$(gh api "repos/${{ github.repository }}/actions/workflows/unixnu-kernel.yml/runs?status=success&per_page=1")
+            id=$(printf '%s' "$run" | jq -r '.workflow_runs[0].id // empty')
+            created=$(printf '%s' "$run" | jq -r '.workflow_runs[0].created_at // empty')
+            if [ -n "$id" ] && [[ "$created" > "$since" ]]; then
+              found="$id"
+              break
+            fi
+            sleep 30
+          done
+          if [ -z "$found" ]; then
+            echo "::error::no successful kernel run created after $since"
+            exit 1
+          fi
+          echo "new kernel run: $found"
+          gh workflow run unixnu-efi.yml --ref main -f kernel_run_id="$found"

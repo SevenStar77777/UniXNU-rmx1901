@@ -12,6 +12,9 @@ zzza-rmx1901-vfsroot-probes.patch
 # is never loaded and /sbin/launchd exec fails with errno 8 (ENOEXEC).
 rmx1901-trust-cache-guard.patch
 rmx1901-trust-cache-init.patch
-# Synchronous execve trace from the sirius bring-up: if exec still fails, the
-# panel shows exactly which step returns errno 8 instead of only the final panic.
-rmx1901-exec-trace.patch
+# Synchronous execve trace. The boot panel's console region is an early
+# snapshot (sirius HANDOFF) and freezes when the timer IRQ stops, so printf
+# alone never reaches the photo. rmx1901-exec-panel.patch mirrors each exec
+# step into boot_progress_stage(), which paints row 5 synchronously, so the
+# exact step where pid1 stops is visible on the next boot photo.
+rmx1901-exec-panel.patch

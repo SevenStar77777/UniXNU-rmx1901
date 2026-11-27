@@ -1,0 +1,32 @@
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -2309,6 +2309,29 @@
+ 		    "rmxE magic=%02x%02x%02x%02x resid=%d",
+ 		    rmx_h[0], rmx_h[1], rmx_h[2], rmx_h[3], (int)resid);
+ 		boot_progress_stage(rmx_buf);
++		{
++			char rmx_path[MAXPATHLEN];
++			int rmx_len = (int)sizeof(rmx_path);
++			unsigned char rmx_again[8];
++			int rmx_resid2 = (int)sizeof(rmx_again);
++			int rmx_err2;
++			char rmx_buf2[160];
++
++			rmx_path[0] = 0;
++			if (vn_getpath(imgp->ip_vp, rmx_path, &rmx_len) != 0) {
++				strlcpy(rmx_path, "?", sizeof(rmx_path));
++			}
++			rmx_err2 = vn_rdwr(UIO_READ, imgp->ip_vp, (caddr_t)rmx_again,
++			    (int)sizeof(rmx_again), 0, UIO_SYSSPACE, IO_NODELOCKED,
++			    vfs_context_ucred(imgp->ip_vfs_context), &rmx_resid2,
++			    vfs_context_proc(imgp->ip_vfs_context));
++			snprintf(rmx_buf2, sizeof(rmx_buf2),
++			    "rmxE2 %s sz=%llx e=%d/%d m=%02x%02x%02x%02x r=%d",
++			    rmx_path, (unsigned long long)imgp->ip_vattr.va_size,
++			    (int)error, rmx_err2, rmx_again[0], rmx_again[1],
++			    rmx_again[2], rmx_again[3], rmx_resid2);
++			boot_progress_stage(rmx_buf2);
++		}
+ 	}
+ 
+ encapsulated_binary:

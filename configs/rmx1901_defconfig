@@ -21,5 +21,7 @@ CONFIG_XNU_ARMVIRT_PLATFORM=n
 CONFIG_XNU_NATIVE_PAN=n
 CONFIG_XNU_SOURCE_MOCKFS=n
 CONFIG_XNU_TRUST_CACHE_RUNTIME=y
-CONFIG_XNU_NATIVE_CS_HASH_CACHE=y
+# sirius (same SoC, same 21H461 IPSW, known to reach execve activate 0) builds
+# this off. Leave it off until a build with it on is proven to add something.
+CONFIG_XNU_NATIVE_CS_HASH_CACHE=n
 CONFIG_XNU_SHENG_PMGR=1

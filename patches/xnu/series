@@ -38,3 +38,9 @@ rmx1901-post-exec-tlb-flush.patch
 # us whether errno 8 (ENOEXEC) is an all-zero/short read, a valid Mach-O magic
 # that a later gate rejects, or an encrypted/corrupt image. No behavior change.
 rmx1901-launchd-magic-probe.patch
+# The first magic probe showed magic=00000000 resid=0: the read finished with a
+# full page but the bytes were zero. Pin down whether the zero comes from the
+# vnode's data (second read also zero) or from the first buffer / TLB (second
+# read valid), and print the resolved path and file size so a wrong vnode is
+# excluded. One more build, then no more guessing at this layer.
+rmx1901-launchd-read-probe.patch

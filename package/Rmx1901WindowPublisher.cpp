@@ -32,10 +32,10 @@
 #include <libkern/c++/OSIterator.h>
 #include <libkern/c++/OSNumber.h>
 #include <libkern/c++/OSString.h>
+#include <kern/task.h>
 #include <kern/thread.h>
 #include <pexpert/pexpert.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <sys/param.h>
 #include <sys/types.h>
 #include <string.h>
@@ -195,7 +195,8 @@ class Rmx1901WindowBlock : public IOBlockStorageDevice {
     uint64_t done = 0;
     IOReturn result = kIOReturnSuccess;
     while (done < count) {
-      uint32_t chunk = (uint32_t)MIN((uint64_t)kTransferSectors, count - done);
+      uint32_t chunk = count - done < kTransferSectors
+          ? static_cast<uint32_t>(count - done) : kTransferSectors;
       if (!parent->readWindow(firstSector + block + done, chunk, buffer,
               done * kSectorBytes)) {
         result = kIOReturnIOError;
@@ -243,7 +244,7 @@ bool Rmx1901WindowPublisher::readManifest() {
   SHA256_CTX context;
   uint8_t digest[32];
   SHA256_Init(&context);
-  SHA256_Update(&context, raw, kDigestOffset);
+  SHA256_Update(&context, raw, static_cast<size_t>(kDigestOffset));
   SHA256_Final(digest, &context);
   if (memcmp(digest, raw + kDigestOffset, sizeof(digest))) return false;
 
@@ -280,6 +281,12 @@ bool Rmx1901WindowPublisher::readManifest() {
   return true;
 }
 
+static void rmx1901_publish_windows(void *argument, wait_result_t) {
+  auto *owner = static_cast<Rmx1901WindowPublisher *>(argument);
+  owner->publishWindows();
+  owner->release();
+}
+
 bool Rmx1901WindowPublisher::start(IOService *provider) {
   if (!IOService::start(provider)) return false;
 
@@ -309,12 +316,8 @@ bool Rmx1901WindowPublisher::start(IOService *provider) {
   // NativeDwMmc uses: APFS sees the windows only after this service is live.
   retain();
   thread_t thread = nullptr;
-  if (kernel_thread_start(
-          [](void *argument, wait_result_t) -> void {
-              static_cast<Rmx1901WindowPublisher *>(argument)->publishWindows();
-              static_cast<Rmx1901WindowPublisher *>(argument)->release();
-          },
-          this, &thread) == KERN_SUCCESS) {
+  if (kernel_thread_start(rmx1901_publish_windows, this, &thread) ==
+      KERN_SUCCESS) {
     thread_deallocate(thread);
   } else {
     release();

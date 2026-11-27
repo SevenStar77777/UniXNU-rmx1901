@@ -3,7 +3,7 @@ name: Auto dispatch early-freeze diagnostic build
 # One-shot helper: committing this file starts the kernel build with a build-time
 # patch that makes boot_progress_stage() paint the latest stage synchronously.
 # When that kernel run succeeds, it dispatches the EFI payload workflow with the
-# new run id. No large source file is rewritten in git for this diagnostic.
+# exact run id. No large source file is rewritten in git for this diagnostic.
 on:
   push:
     branches: [main]
@@ -18,10 +18,14 @@ permissions:
 jobs:
   dispatch-kernel:
     runs-on: ubuntu-latest
+    outputs:
+      kernel_run_id: ${{ steps.dispatch.outputs.id }}
     steps:
       - name: Dispatch kernel build with synchronous stage painting
+        id: dispatch
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: SevenStar77777/UniXNU-rmx1901
           PRE_BUILD: |
             python3 - <<'PY'
             import os
@@ -67,39 +71,60 @@ jobs:
             PY
         run: |
           set -euo pipefail
-          gh workflow run unixnu-kernel.yml --ref main \
-            -f device_repository=SevenStar77777/UniXNU-rmx1901 \
+          before=$(gh api "repos/$REPO/actions/workflows/unixnu-kernel.yml/runs?per_page=1" --jq '.workflow_runs[0].id // empty')
+          gh workflow run --repo "$REPO" unixnu-kernel.yml --ref main \
+            -f device_repository="$REPO" \
             -f device_ref=main \
             -f unixnu_ref=main \
             -f defconfig=rmx1901_defconfig \
             -f steps=kernel \
             -f xcode=26.6 \
             -f pre_build="$PRE_BUILD"
+          found=""
+          for i in $(seq 1 30); do
+            now=$(gh api "repos/$REPO/actions/workflows/unixnu-kernel.yml/runs?per_page=1" --jq '.workflow_runs[0].id // empty')
+            if [ -n "$now" ] && [ "$now" != "$before" ]; then
+              found="$now"
+              break
+            fi
+            sleep 5
+          done
+          if [ -z "$found" ]; then
+            echo "::error::no new kernel run appeared after dispatch"
+            exit 1
+          fi
+          echo "new kernel run: $found"
+          echo "id=$found" >> "$GITHUB_OUTPUT"
 
   dispatch-efi:
     needs: dispatch-kernel
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for the new kernel run and dispatch the payload volume
+      - name: Wait for the exact kernel run and dispatch the payload volume
         env:
           GH_TOKEN: ${{ github.token }}
+          REPO: SevenStar77777/UniXNU-rmx1901
+          KERNEL_RUN_ID: ${{ needs.dispatch-kernel.outputs.kernel_run_id }}
         run: |
           set -euo pipefail
-          since=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          found=""
-          for i in $(seq 1 120); do
-            run=$(gh api "repos/${{ github.repository }}/actions/workflows/unixnu-kernel.yml/runs?status=success&per_page=1")
-            id=$(printf '%s' "$run" | jq -r '.workflow_runs[0].id // empty')
-            created=$(printf '%s' "$run" | jq -r '.workflow_runs[0].created_at // empty')
-            if [ -n "$id" ] && [[ "$created" > "$since" ]]; then
-              found="$id"
+          if [ -z "$KERNEL_RUN_ID" ]; then
+            echo "::error::no kernel run id from dispatch-kernel"
+            exit 1
+          fi
+          result=""
+          for i in $(seq 1 240); do
+            info=$(gh api "repos/$REPO/actions/runs/$KERNEL_RUN_ID")
+            status=$(printf '%s' "$info" | jq -r '.status // empty')
+            conclusion=$(printf '%s' "$info" | jq -r '.conclusion // empty')
+            if [ "$status" = "completed" ]; then
+              result="$conclusion"
               break
             fi
             sleep 30
           done
-          if [ -z "$found" ]; then
-            echo "::error::no successful kernel run created after $since"
+          if [ "$result" != "success" ]; then
+            echo "::error::kernel run $KERNEL_RUN_ID did not succeed (result=${result:-timeout})"
             exit 1
           fi
-          echo "new kernel run: $found"
-          gh workflow run unixnu-efi.yml --ref main -f kernel_run_id="$found"
+          echo "kernel run $KERNEL_RUN_ID succeeded; dispatching payload volume"
+          gh workflow run --repo "$REPO" unixnu-efi.yml --ref main -f kernel_run_id="$KERNEL_RUN_ID"

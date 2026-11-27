@@ -1,0 +1,24 @@
+diff --git a/bsd/kern/bsd_init.c b/bsd/kern/bsd_init.c
+index c23e7fd..9a1c8c5 100644
+--- a/bsd/kern/bsd_init.c
++++ b/bsd/kern/bsd_init.c
+@@ -918,16 +918,19 @@ bsd_init(void)
+ 	mountlist.tqh_first->mnt_flag |= MNT_ROOTFS;
+ 
+ 	bsd_init_kprintf("calling VFS_ROOT\n");
++	boot_progress_stage("rmx probe: pre VFS_ROOT");
+ 	/* Get the vnode for '/'.  Set fdp->fd_fd.fd_cdir to reference it. */
+ 	if (VFS_ROOT(mountlist.tqh_first, &init_rootvnode, vfs_context_kernel())) {
+ 		panic("bsd_init: cannot find root vnode: %s", PE_boot_args());
+ 	}
++	boot_progress_stage("rmx probe: post VFS_ROOT");
+ 	(void)vnode_ref(init_rootvnode);
+ 	(void)vnode_put(init_rootvnode);
+ 
+ 	lck_rw_lock_exclusive(&rootvnode_rw_lock);
+ 	set_rootvnode(init_rootvnode);
+ 	lck_rw_unlock_exclusive(&rootvnode_rw_lock);
++	boot_progress_stage("rmx probe: post set_rootvnode");
+ 	init_rootvnode = NULLVP;  /* use rootvnode after this point */
+ 
+ 

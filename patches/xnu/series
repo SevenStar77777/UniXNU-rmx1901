@@ -4,3 +4,6 @@ sweet-ufs-root.patch
 # Board-started SHNGROOT window publisher. Must come after sweet-ufs-root.patch
 # so the exported UFS read/geometry primitives are present.
 zzz-rmx1901-window-personality.patch
+# Fine-grained boot_progress_stage probes around bsd_init()'s VFS_ROOT path.
+# Last, so it sees the final bsd_init.c produced by all other patches.
+zzza-rmx1901-vfsroot-probes.patch

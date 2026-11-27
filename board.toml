@@ -38,6 +38,7 @@ archives = [
   "build-boot-progress.py",
   "build-rmx1901-pmgr.py",
   "build-rmx1901-windows.py",
+  "build-rmx1901-storage-bindings.py",
 ]
 
 [device_tree]

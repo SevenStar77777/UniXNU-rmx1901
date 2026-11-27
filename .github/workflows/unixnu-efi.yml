@@ -233,9 +233,12 @@ jobs:
       # bundle-ipsw-trust.py makes execve("/sbin/launchd") return 0. The raw trst IM4P is NOT a
       # valid bundle: DarwinBoot's ValidTrustCaches expects a version-2 module-offset table.
       - name: Build the original trust cache bundle
+        env:
+          UNIXNU_DEVICE: ${{ github.workspace }}/device
         run: |
           set -euo pipefail
           cd unixnu-src
+          ./unixnu defconfig rmx1901_defconfig
           static=$(./unixnu ipsw fetch StaticTrustCache | tail -n 1)
           system=$(./unixnu ipsw fetch 'Cryptex1,SystemTrustCache' | tail -n 1)
           echo "StaticTrustCache: $static"

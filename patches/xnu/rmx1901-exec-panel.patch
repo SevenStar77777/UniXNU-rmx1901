@@ -2,13 +2,20 @@ diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
 index 3578bcd..910ae2a 100644
 --- a/bsd/kern/kern_exec.c
 +++ b/bsd/kern/kern_exec.c
+@@ -1,3 +1,6 @@
++#include <kern/boot_progress.h>
++#undef boot_progress_stage
++extern void boot_progress_stage(const char *);
+ /*
+  * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+  *
 @@ -2247,7 +2247,9 @@ exec_activate_image(struct image_params *imgp)
  	    UIO_SYSSPACE, CAST_USER_ADDR_T(excpath), imgp->ip_vfs_context);
  
  again:
-+	printf("rmx1901: execve namei enter\n"); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage("rmxE: namei enter"); }
++	printf("rmx1901: execve namei enter\n"); boot_progress_stage("rmxE: namei enter");
  	error = namei(ndp);
-+	printf("rmx1901: execve namei %d\n", error); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage((error ? "rmxE: namei ERR" : "rmxE: namei OK")); }
++	printf("rmx1901: execve namei %d\n", error); boot_progress_stage((error ? "rmxE: namei ERR" : "rmxE: namei OK"));
  	if (error) {
  		if (error == ERESTART) {
  			error = EINTR;
@@ -16,9 +23,9 @@ index 3578bcd..910ae2a 100644
  
  #if CONFIG_MACF
  	if (uap->mac_p != USER_ADDR_NULL) {
-+		printf("rmx1901: execve mac_enter enter\n"); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage("rmxE: mac_enter enter"); }
++		printf("rmx1901: execve mac_enter enter\n"); boot_progress_stage("rmxE: mac_enter enter");
  		error = mac_execve_enter(uap->mac_p, imgp);
-+		printf("rmx1901: execve mac_enter %d\n", error); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage((error ? "rmxE: mac_enter ERR" : "rmxE: mac_enter OK")); }
++		printf("rmx1901: execve mac_enter %d\n", error); boot_progress_stage((error ? "rmxE: mac_enter ERR" : "rmxE: mac_enter OK"));
  		if (error) {
  			goto exit_with_error;
  		}
@@ -26,9 +33,9 @@ index 3578bcd..910ae2a 100644
  		 * the old proc in pid hash and other lists that make
  		 * the proc visible to the system.
  		 */
-+		printf("rmx1901: execve cloneproc enter\n"); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage("rmxE: cloneproc enter"); }
++		printf("rmx1901: execve cloneproc enter\n"); boot_progress_stage("rmxE: cloneproc enter");
  		imgp->ip_new_thread = cloneproc(old_task, NULL, p, CLONEPROC_EXEC);
-+		printf("rmx1901: execve cloneproc done\n"); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage("rmxE: cloneproc done"); }
++		printf("rmx1901: execve cloneproc done\n"); boot_progress_stage("rmxE: cloneproc done");
  		/* task and thread ref returned by cloneproc */
  		if (imgp->ip_new_thread == NULL) {
  			(void)chgproccnt(kauth_getruid(), -1);
@@ -36,10 +43,10 @@ index 3578bcd..910ae2a 100644
  
  	imgp->ip_subsystem_root_path = p->p_subsystem_root_path;
  
-+	printf("rmx1901: execve proc locks enter\n"); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage("rmxE: locks enter"); }
++	printf("rmx1901: execve proc locks enter\n"); boot_progress_stage("rmxE: locks enter");
  	proc_transend(p, 0);
  	proc_signalend(p, 0);
-+	printf("rmx1901: execve proc locks done\n"); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage("rmxE: locks done"); }
++	printf("rmx1901: execve proc locks done\n"); boot_progress_stage("rmxE: locks done");
  
  
  	/*
@@ -47,9 +54,9 @@ index 3578bcd..910ae2a 100644
  	 * Warning: If activation failed after point of no return, it returns error
  	 * as 0 and pretends the call succeeded.
  	 */
-+	printf("rmx1901: execve activate enter\n"); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage("rmxE: activate enter"); }
++	printf("rmx1901: execve activate enter\n"); boot_progress_stage("rmxE: activate enter");
  	error = exec_activate_image(imgp);
-+	printf("rmx1901: execve activate %d\n", error); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage((error ? "rmxE: activate ERR" : "rmxE: activate OK")); }
++	printf("rmx1901: execve activate %d\n", error); boot_progress_stage((error ? "rmxE: activate ERR" : "rmxE: activate OK"));
  	/* thread and task ref returned for vfexec case */
  
  	if (imgp->ip_new_thread != NULL) {
@@ -57,9 +64,9 @@ index 3578bcd..910ae2a 100644
  	 */
  	size_t path_length = strlen(path) + 1;
  	argv0 = scratch_addr;
-+	printf("rmx1901: init path copyout enter %s\n", path); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage("rmxE: copyout enter"); }
++	printf("rmx1901: init path copyout enter %s\n", path); boot_progress_stage("rmxE: copyout enter");
  	error = copyout(path, argv0, path_length);
-+	printf("rmx1901: init path copyout %d\n", error); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage((error ? "rmxE: copyout ERR" : "rmxE: copyout OK")); }
++	printf("rmx1901: init path copyout %d\n", error); boot_progress_stage((error ? "rmxE: copyout ERR" : "rmxE: copyout OK"));
  	if (error) {
  		return error;
  	}
@@ -67,7 +74,7 @@ index 3578bcd..910ae2a 100644
  		scratch_addr = USER_ADDR_ALIGN(scratch_addr + init_args_length, sizeof(user_addr_t));
  	}
  
-+	printf("rmx1901: init argv enter\n"); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage("rmxE: argv enter"); }
++	printf("rmx1901: init argv enter\n"); boot_progress_stage("rmxE: argv enter");
  	if (proc_is64bit(p)) {
  		user64_addr_t argv64bit[3] = {};
  
@@ -75,13 +82,13 @@ index 3578bcd..910ae2a 100644
  	 * The access to the cred is safe:
  	 * the proc isn't running yet, it's stable.
  	 */
-+	printf("rmx1901: init token enter\n"); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage("rmxE: token enter"); }
++	printf("rmx1901: init token enter\n"); boot_progress_stage("rmxE: token enter");
  	set_security_token(p, proc_ucred_unsafe(p));
  
 -	return execve(p, &init_exec_args, retval);
-+	printf("rmx1901: init execve enter\n"); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage("rmxE: init execve enter"); }
++	printf("rmx1901: init execve enter\n"); boot_progress_stage("rmxE: init execve enter");
 +	error = execve(p, &init_exec_args, retval);
-+	printf("rmx1901: init execve returned %d\n", error); { extern void boot_progress_stage(const char*) __attribute__((weak)); if (boot_progress_stage) boot_progress_stage((error ? "rmxE: init execve ERR" : "rmxE: init execve OK")); }
++	printf("rmx1901: init execve returned %d\n", error); boot_progress_stage((error ? "rmxE: init execve ERR" : "rmxE: init execve OK"));
 +	return error;
  }
  

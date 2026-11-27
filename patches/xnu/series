@@ -17,4 +17,12 @@ rmx1901-trust-cache-init.patch
 # alone never reaches the photo. rmx1901-exec-panel.patch mirrors each exec
 # step into boot_progress_stage(), which paints row 5 synchronously, so the
 # exact step where pid1 stops is visible on the next boot photo.
+# NOTE: XNU_BOOT_PROGRESS=1 makes boot_progress_stage a real function; the file
+# explicitly #undef's any empty-macro definition from the stripped export header.
 rmx1901-exec-panel.patch
+# AMFI exec-policy bypass, ported from 57UU/UniXNU-sirius (same SDM710). The
+# unmodified AMFI refuses every image (no trust cache it accepts) and kills
+# launchd with EXEC_EXIT_REASON_SECURITY_POLICY; amfi boot args are ignored.
+# With rmx1901-skip-cs=1 this records the answer and lets the image run, which
+# is exactly how sirius reached "execve activate 0" and userland.
+rmx1901-skip-exec-policy.patch

@@ -1,0 +1,30 @@
+diff --git a/bsd/kern/kern_exec.c b/bsd/kern/kern_exec.c
+index 69ed4bf..297d1dc 100644
+--- a/bsd/kern/kern_exec.c
++++ b/bsd/kern/kern_exec.c
+@@ -7905,6 +7905,25 @@ process_signature(proc_t p, struct image_params *imgp)
+ 	 * approve of exec, kill and return immediately.
+ 	 */
+ 	boot_progress_process_stage(proc_getpid(p),p->p_name,"exec MAC policy REFUSED");
++	/* Bring-up instrument: the policy answer comes from AMFI, which asks a trust cache this port
++	 * does not fully supply, so every image can be refused and launchd killed with
++	 * EXEC_EXIT_REASON_SECURITY_POLICY (seen as errno 8 on the launchdsuffix=release path).
++	 * With rmx1901-skip-cs=1 the answer is recorded and the image is allowed to run;
++	 * without it the kernel refuses exactly as before. Ported from 57UU/UniXNU-sirius,
++	 * the same SDM710 SoC, whose HANDOFF records execve activate 0 with this bypass. */
++	unsigned rmx1901_skip_cs = 0;
++	PE_parse_boot_argn("rmx1901-skip-cs", &rmx1901_skip_cs, sizeof(rmx1901_skip_cs));
++	if (rmx1901_skip_cs != 0) {
++		if (imgp->ip_mac_return != 0) {
++			printf("rmx1901: exec policy answered %d, skipped by boot arg\n",
++			    imgp->ip_mac_return);
++			imgp->ip_mac_return = 0;
++		}
++		if (imgp->ip_cs_error != OS_REASON_NULL) {
++			printf("rmx1901: exec code signing error, skipped by boot arg\n");
++			imgp->ip_cs_error = OS_REASON_NULL;
++		}
++	}
+ 	if (imgp->ip_mac_return != 0) {
+ 		KERNEL_DEBUG_CONSTANT(BSDDBG_CODE(DBG_BSD_PROC, BSD_PROC_EXITREASON_CREATE) | DBG_FUNC_NONE,
+ 		    proc_getpid(p), OS_REASON_EXEC, EXEC_EXIT_REASON_SECURITY_POLICY, 0, 0);

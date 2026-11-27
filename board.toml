@@ -85,6 +85,11 @@ kernel_args = [
   # From the sirius (SDM710) bring-up: load /sbin/launchd directly in DEVELOPMENT
   # and report its errno instead of silently falling back to the shared cache path.
   "launchdsuffix=release",
+  # sirius (SDM710) HANDOFF: unmodified AMFI ignores its own amfi_* args and
+  # refuses every exec with EXEC_EXIT_REASON_SECURITY_POLICY (seen here as
+  # errno 8 on the launchdsuffix=release path). rmx1901-skip-exec-policy.patch
+  # records the answer and lets the image run when this arg is set.
+  "rmx1901-skip-cs=1",
   "sheng-build-tag=rmx1901-m2",
 ]
 

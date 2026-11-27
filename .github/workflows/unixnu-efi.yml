@@ -226,6 +226,25 @@ jobs:
           PY2
           grep -c '0x' "$dir/Font.h"
 
+      # The AMFI/kernel exec policy needs the two unchanged original trust modules from the
+      # pinned IPSW. 58UU/UniXNU-sirius (Xiaomi Mi 8 SE, the same SDM710) proved that a payload
+      # with no kernel.macho.trustcache gets launchd killed with namespace 9 / code 8, and that
+      # re-bundling StaticTrustCache + Cryptex1,SystemTrustCache with the main repository's
+      # bundle-ipsw-trust.py makes execve("/sbin/launchd") return 0. The raw trst IM4P is NOT a
+      # valid bundle: DarwinBoot's ValidTrustCaches expects a version-2 module-offset table.
+      - name: Build the original trust cache bundle
+        run: |
+          set -euo pipefail
+          cd unixnu-src
+          static=$(./unixnu ipsw fetch StaticTrustCache | tail -n 1)
+          system=$(./unixnu ipsw fetch 'Cryptex1,SystemTrustCache' | tail -n 1)
+          echo "StaticTrustCache: $static"
+          echo "Cryptex1,SystemTrustCache: $system"
+          test -s "$static"
+          test -s "$system"
+          python3 scripts/bundle-ipsw-trust.py "$RUNNER_TEMP/original-static-system.bundle" "$static" "$system"
+          sha256sum "$RUNNER_TEMP/original-static-system.bundle"
+
       # Everything below is the platform independent half of "unixnu build payload": the
       # driver needs the device repository, the SoC feed and a prelinked kernel.
       - name: Build the payload volume
@@ -238,6 +257,7 @@ jobs:
           ./unixnu fetch sdm710
           ./unixnu defconfig rmx1901_defconfig
           ./unixnu build payload --kernel "$RUNNER_TEMP/kernel.macho" \
+            --trust-cache "$RUNNER_TEMP/original-static-system.bundle" \
             --edk2 "${{ github.workspace }}/Mu_Basecore" \
             --uefi "${{ github.workspace }}/uefi-font"
           echo '--- payload report'

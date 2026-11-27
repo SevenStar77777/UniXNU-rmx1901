@@ -61,6 +61,10 @@ loader = "payload"
 title = "rmx1901 first boot: XNU to console"
 dram_size = "0x7e2c0000"
 panic_screen = false
+# The two unchanged 21H461 modules as re-bundled by scripts/bundle-ipsw-trust.py.
+# Same IPSW and same accepted bundle as 57UU/UniXNU-sirius (Xiaomi Mi 8 SE, SDM710),
+# whose payload proves execve("/sbin/launchd") completes with this bundle.
+trust_cache_sha256 = ["7416ca4f8377146626bb284e2133c76bee6cb4e3ee0af5d648b186235a7323a7", "8900d6a93d7a59ce1a872a5c081e559f4240a218f97e12d44d22dda46644d68f"]
 kernel_args = [
   "-v",
   "debug=0x14e",
@@ -78,6 +82,9 @@ kernel_args = [
   "rmx1901-root-windows=1",
   "rmx1901-allow-unverified=1",
   "offline-apfs-load=1",
+  # From the sirius (SDM710) bring-up: load /sbin/launchd directly in DEVELOPMENT
+  # and report its errno instead of silently falling back to the shared cache path.
+  "launchdsuffix=release",
   "sheng-build-tag=rmx1901-m2",
 ]
 

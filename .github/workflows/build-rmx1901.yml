@@ -51,8 +51,8 @@ jobs:
 
       - name: Pack boot.img and HKUB
         run: |
-          DTB=$(find build/u-boot-rmx1901 -name '*.dtb' -print -quit)
-          test -s "$DTB" || { echo "no U-Boot DTB was built" >&2; exit 1; }
+          DTB=$(find build/u-boot-rmx1901 -name 'sdm710-rmx1901.dtb' -print -quit)
+          test -s "$DTB" || { echo "no RMX1901 U-Boot DTB was built" >&2; exit 1; }
           python3 u-boot/pack.py \
             --u-boot build/u-boot-rmx1901/u-boot.bin \
             --loader build/loader-rmx1901.efi \

@@ -44,3 +44,8 @@ rmx1901-launchd-magic-probe.patch
 # read valid), and print the resolved path and file size so a wrong vnode is
 # excluded. One more build, then no more guessing at this layer.
 rmx1901-launchd-read-probe.patch
+# Which layer turns /sbin/launchd into zeros. Registers nothing; it only
+# reports the vnode's BSD flags + decmpfs xattr size, and whether the read
+# or page-in path bailed with ENOTSUP because the on-disk type (4/9) has no
+# decompressor. One build names the layer; no behaviour change.
+rmx1901-decmpfs-state-probe.patch

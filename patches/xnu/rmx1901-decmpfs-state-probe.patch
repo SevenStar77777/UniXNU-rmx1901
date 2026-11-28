@@ -1,0 +1,87 @@
+diff --git a/bsd/kern/decmpfs.c b/bsd/kern/decmpfs.c
+--- a/bsd/kern/decmpfs.c
++++ b/bsd/kern/decmpfs.c
+@@ -835,6 +835,27 @@
+ 		ret = FILE_IS_NOT_COMPRESSED;
+ 		goto done;
+ 	}
++	{
++		/* rmx1901: tell apart "no compressor registered for this type" from
++		 * "the UF_COMPRESSED gate never opened". Both leave pid 1's exec read
++		 * with an all-zero page, so the boot panel must name the one that
++		 * actually happened on this board. No behaviour change. */
++		char rmx_dbuf[84];
++		extern void boot_progress_stage(const char *text) __attribute__((weak));
++		size_t rmx_xsize = 0;
++		int rmx_xerr = vn_getxattr(vp, DECMPFS_XATTR_NAME, NULL, &rmx_xsize,
++		    XATTR_NOSECURITY, decmpfs_ctx);
++		if (rmx_xerr == 0) {
++			printf("rmx1901 decmpfs: flags 0x%x xattr_size %lu (UF_COMPRESSED %d)\n",
++			    va_fetch.va_flags, (unsigned long)rmx_xsize,
++			    (va_fetch.va_flags & UF_COMPRESSED) ? 1 : 0);
++			if (boot_progress_stage != NULL) {
++				snprintf(rmx_dbuf, sizeof(rmx_dbuf), "rmxD flags %x xattr %lu",
++				    va_fetch.va_flags, (unsigned long)rmx_xsize);
++				boot_progress_stage(rmx_dbuf);
++			}
++		}
++	}
+ 	if (va_fetch.va_flags & UF_COMPRESSED) {
+ 		/* UF_COMPRESSED is on, make sure the file has the DECMPFS_XATTR_NAME xattr */
+ 		error = decmpfs_fetch_compressed_header(vp, cp, &hdr, 1, &alloc_size);
+@@ -1229,10 +1229,25 @@
+ 		} else {
+ 			decmpfs_ktriage_record(KTRIAGE_DECMPFS_FETCH_CALLBACK_FAILED, err);
+ 		}
+-	} else {
+-		decmpfs_ktriage_record(KTRIAGE_DECMPFS_COMPRESSOR_NOT_REGISTERED, hdr->compression_type);
+-		err = ENOTSUP;
+-		lck_rw_unlock_shared(&decompressorsLock);
++	} else {
++		decmpfs_ktriage_record(KTRIAGE_DECMPFS_COMPRESSOR_NOT_REGISTERED, hdr->compression_type);
++		{
++			/* rmx1901: decmpfs engaged for this vnode but nothing is registered
++			 * for its on-disk type. This branch is the zero fill behind
++			 * "Process 1 exec of launchd.release failed, errno 8". */
++			char rmx_nbuf[84];
++			extern void boot_progress_stage(const char *text) __attribute__((weak));
++			printf("rmx1901 decmpfs: read type %u usize %lu xattr %u\n",
++			    hdr->compression_type, (unsigned long)hdr->uncompressed_size,
++			    hdr->attr_size);
++			if (boot_progress_stage != NULL) {
++				snprintf(rmx_nbuf, sizeof(rmx_nbuf), "rmxD rd type %u nocomp",
++				    hdr->compression_type);
++				boot_progress_stage(rmx_nbuf);
++			}
++		}
++		err = ENOTSUP;
++		lck_rw_unlock_shared(&decompressorsLock);
+ 	}
+ 	/*
+ 	 * Trace the following parameters on return with event-id 0x03120008.
+@@ -1321,9 +1321,22 @@
+ 	cachedSize = hdr->uncompressed_size;
+ 
+ 	if (!compression_type_valid(vp, hdr)) {
+-		/* compressor not registered */
+-		decmpfs_ktriage_record(KTRIAGE_DECMPFS_COMPRESSOR_NOT_REGISTERED, hdr->compression_type);
+-		err = ENOTSUP;
++		/* compressor not registered */
++		decmpfs_ktriage_record(KTRIAGE_DECMPFS_COMPRESSOR_NOT_REGISTERED, hdr->compression_type);
++		{
++			/* rmx1901: page-in path; the exec fault goes through here. */
++			char rmx_pbuf[84];
++			extern void boot_progress_stage(const char *text) __attribute__((weak));
++			printf("rmx1901 decmpfs: pagein type %u usize %lu xattr %u\n",
++			    hdr->compression_type, (unsigned long)hdr->uncompressed_size,
++			    hdr->attr_size);
++			if (boot_progress_stage != NULL) {
++				snprintf(rmx_pbuf, sizeof(rmx_pbuf), "rmxD pi type %u nocomp",
++				    hdr->compression_type);
++				boot_progress_stage(rmx_pbuf);
++			}
++		}
++		err = ENOTSUP;
+ 		goto out;
+ 	}
+ 

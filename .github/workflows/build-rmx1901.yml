@@ -38,6 +38,7 @@ jobs:
           cd "$RUNNER_TEMP/kernel"
           HAKIOS_DEVICES="$RUNNER_TEMP/kernel/arch/arm64/boot/dts" \
             arch/arm64/boot/build.sh
+          mkdir -p "$GITHUB_WORKSPACE/build"
           cp arch/arm64/boot/loader.efi "$GITHUB_WORKSPACE/build/loader-rmx1901.efi"
 
       - name: Build U-Boot boot shim

@@ -8,7 +8,9 @@
 CONFIG_ARM=y
 CONFIG_SKIP_LOWLEVEL_INIT=y
 CONFIG_POSITION_INDEPENDENT=y
-CONFIG_SYS_INIT_SP_BSS_OFFSET=0x180000
+CONFIG_SYS_INIT_SP_BSS_OFFSET=0x400000
+# The device's live FDT is ~502 KiB; U-Boot's init_sp_bss_offset_check
+# requires (offset - malloc_f_len)/4 >= dtb_size, so 0x180000 was too small.
 CONFIG_ARCH_SNAPDRAGON=y
 CONFIG_NR_DRAM_BANKS=24
 CONFIG_DEFAULT_DEVICE_TREE="qcom/sdm710-rmx1901"

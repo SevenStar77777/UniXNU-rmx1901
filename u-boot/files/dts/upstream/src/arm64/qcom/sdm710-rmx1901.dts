@@ -1,12 +1,6 @@
 /dts-v1/;
 
 / {
-    /* Added for U-Boot: RAM described from the phone's live FDT
-     * (MemTotal ~5.6 GiB on this 6GB RMX1901, base 0x80000000). */
-    memory@80000000 {
-        device_type = "memory";
-        reg = <0x0 0x80000000 0x0 0x180000000>;
-    };
     #address-cells = <0x2>;
     #size-cells = <0x2>;
     model = "Qualcomm Technologies, Inc. SDM710 PM660 + PM660A MTP";

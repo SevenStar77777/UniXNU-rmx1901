@@ -47,7 +47,8 @@ jobs:
           export KERNEL_ROOT="$RUNNER_TEMP/kernel"
           export DEVICE_FIRMWARE="$GITHUB_WORKSPACE/local-firmware"
           export HAKIOS_PROFILE_ROOT="$GITHUB_WORKSPACE/platform"
-          u-boot/build.sh qualcomm/rmx1901
+          set -o pipefail
+          u-boot/build.sh qualcomm/rmx1901 2>&1 | tee build/uboot-build.log
 
       - name: Pack boot.img and HKUB
         run: |
@@ -59,6 +60,14 @@ jobs:
             --dtb "$DTB" \
             --hkub-output build/hakios-rmx1901.hkub \
             -o build/hakios-rmx1901.img
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: uboot-build-log
+          path: build/uboot-build.log
+          if-no-files-found: warn
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
